@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.94"
-mlua = {version="0.10.1", features = ["lua54", "serialize", "vendored", "macros"]}
+mlua = {version="0.10.1", features = ["lua54", "serialize", "vendored", "macros", "anyhow"]}
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 bstr = {version="1.9.1", features = ["serde"]}
