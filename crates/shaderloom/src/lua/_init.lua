@@ -9,6 +9,10 @@
 local _require = require
 local _LOADED = {}
 
+for k, _v in pairs(_EMBED) do
+    print(("> '%s'"):format(k))
+end
+
 require = function(name)
     local fn = name:gsub("%.", "/") .. ".lua"
     if _LOADED[name] then return _LOADED[name] end
@@ -23,4 +27,4 @@ require = function(name)
 end
 
 -- just test running chunker for now
-require("chunker")
+require("preprocess.chunker")

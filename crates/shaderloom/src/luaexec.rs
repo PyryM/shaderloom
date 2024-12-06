@@ -1,7 +1,7 @@
 use mlua::{Function, Lua, LuaSerdeExt};
 use anyhow::Result;
 
-static LUA_EMBEDS: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_lua_bundle.rs"));
+static LUA_EMBEDS: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"));
 
 pub struct LuaExecutor {
     lua: Lua,

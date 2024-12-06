@@ -4,29 +4,56 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+// This recursively takes the Lua source files in `src/lua/` and bundles them
+// into a single source file `$OUT_DIR/embedded_lua_bundle.lua.
+// (This can then be embedded with `include_str!`).
+//
+// The Lua bundle file itself looks like:
+// ```lua
+// local _EMBED = {}
+// _EMBED['file_one.lua'] = function()
+// -- src/lua/file_one.lua contents
+// end
+// _EMBED['subdir/file_two.lua'] = function()
+// -- src/lua/subdir/file_two.lua contents
+// end
+// -- ...
+// _EMBED['_init.lua']()
+// ```
+//
+// `src/lua/_init.lua` is always run at the end, and sets up `require`
+// to first check the _EMBED table for a file.
+
 fn wrap_lua_file<P: AsRef<Path>>(name: &str, src: &P) -> String {
     let data = fs::read_to_string(src).expect("Failed to read file!");
     format!("_EMBED['{}'] = function()\n{}\nend", name, data)
 }
 
-fn wrap_entry(entry: fs::DirEntry) -> String {
-    let name = entry.file_name().into_string().expect("Filename is not a valid string.");
+fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String {
+    let name = entry
+        .path()
+        .strip_prefix(root_dir)
+        .expect("Path is somehow not relative to root!")
+        .to_str()
+        .expect("Path is not a valid utf8 string!");
     wrap_lua_file(&name, &entry.path())
 }
 
-fn wrap_lua_source_files() -> String {
-    let embeds: Vec<String> = fs::read_dir("src/lua")
-        .expect("Failed to read src/lua")
-        .map(|entry| wrap_entry(entry.expect("failed to read dir entry")))
+fn wrap_lua_source_files<P: AsRef<Path>>(root: &P) -> String {
+    let embeds: Vec<String> = walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| !e.file_type().is_dir())
+        .map(|entry| wrap_entry(root, entry))
         .collect();
     embeds.join("\n")
 }
 
 fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("embedded_lua_bundle.rs");
+    let dest_path = Path::new(&out_dir).join("embedded_lua_bundle.lua");
 
-    let embeds = wrap_lua_source_files();
+    let embeds = wrap_lua_source_files(&"src/lua".to_string());
     let source = format!("local _EMBED={{}}\n{}\n_EMBED['_init.lua']()", embeds);
 
     fs::write(&dest_path, source).expect("Failed to write embedded bundle.");

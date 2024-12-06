@@ -15,3 +15,6 @@ glob = "0.3.1"
 clap = {version = "4.5.22", features = ["derive"] }
 
 lua_binding_macros = {path = "../lua_binding_macros"}
+
+[build-dependencies]
+walkdir = "2.5.0"
