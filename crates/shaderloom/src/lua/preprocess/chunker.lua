@@ -2,18 +2,12 @@
 
 local chunker = {}
 
--- A chunk may be:
--- {kind: "lua", source: string}
--- {kind: "raw", source: string}
--- {kind: "lua_expr", source: string}
--- {kind: "mixed", chunk: chunk[]}
-
 ---
---- Split source code into a list of chunks
+--- Translate source into a runnable Lua script
 ---
 ---@param src string
----@return chunks table[]
-function chunker.split_source(src)
+---@return string
+function chunker.translate_source(src)
     local chunks = {}
 
     local cursor = 1
@@ -23,26 +17,22 @@ function chunker.split_source(src)
     local frags = {}
 
     while cursor <= src_len do
-        local pre_line = src:match("^%s*#(.*\n)", cursor)
+        local pre_line = src:match("^%s*#([^\n]*)\n", cursor)
         if pre_line then
             -- this is a preprocessor line `# ...`
-            table.insert(frags, pre_line)
+            -- preprocessor lines are inserted verbatim
+            table.insert(frags, pre_line) 
             cursor = (src:find("\n", cursor) or src_len) + 1
         else
-            -- TODO
+            -- not a preprocessor line, so find the next preprocessor line
+            local start = cursor
+            cursor = (src:find("\n%s*#", cursor) or src_len)
+            local shader_src = src:sub(start, cursor)
+            table.insert(frags, ("emit_raw[[%s]]"):format(shader_src))
+            cursor = cursor + 1
         end
     end
 
-    return chunks
-end
-
----
---- Formats chunks into an executable Lua script
----
----@param chunks chunk[]
----@return string
-function chunker.emit_lua(chunks)
-    local frags = {}
     return table.concat(frags, "\n")
 end
 

@@ -27,4 +27,16 @@ require = function(name)
 end
 
 -- just test running chunker for now
-require("preprocess.chunker")
+local chunker = require("preprocess.chunker")
+
+local test_source = [[
+# require "foo"
+# import "bar"
+# if true then
+shader_things
+asdfsdf
+fjidjfsjf
+# end
+]]
+
+print(chunker.translate_source(test_source))
