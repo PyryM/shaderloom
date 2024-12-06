@@ -16,7 +16,22 @@ local chunker = {}
 function chunker.split_source(src)
     local chunks = {}
 
+    local cursor = 1
+    local tail = cursor
+    local src_len = #src
 
+    local frags = {}
+
+    while cursor <= src_len do
+        local pre_line = src:match("^%s*#(.*\n)", cursor)
+        if pre_line then
+            -- this is a preprocessor line `# ...`
+            table.insert(frags, pre_line)
+            cursor = (src:find("\n", cursor) or src_len) + 1
+        else
+            -- TODO
+        end
+    end
 
     return chunks
 end
