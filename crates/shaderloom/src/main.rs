@@ -1,10 +1,14 @@
 mod globutils;
 mod luaexec;
 
-use anyhow::Result;
-use luaexec::LuaExecutor;
+use anyhow::{anyhow, Result};
+use luaexec::run_script;
 
 fn main() -> Result<()> {
-    let executor = LuaExecutor::new()?;
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        return Err(anyhow!("Config file is required."))
+    }
+    run_script(&args[1])?;
     Ok(())
 }

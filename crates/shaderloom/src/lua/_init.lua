@@ -43,6 +43,11 @@ else
     end
 end
 
+print(SCRIPTDIR)
+print(ABSSCRIPTDIR)
+print(SCRIPTPATH)
+print(ABSSCRIPTPATH)
+
 local files = {
     ["test_file_two.wgsl"] = [[
 // This should get emitted!

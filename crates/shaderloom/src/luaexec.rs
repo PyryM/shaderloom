@@ -1,64 +1,29 @@
-use mlua::{Function, Lua, LuaSerdeExt, UserData};
+use mlua::Lua;
 use anyhow::Result;
+use crate::globutils::glob_items;
 
 static LUA_EMBEDS: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"));
 
-pub struct LuaExecutor {
-    lua: Lua,
-}
+pub fn run_script(infile: &str) -> Result<()> {
+    let lua = Lua::new();
+    let globals = lua.globals();
 
-pub struct LibLoom {}
+    let globber = lua.create_function(|_, pattern: String| Ok(glob_items(&pattern)?))?;
+    globals.set("_glob", globber)?;
 
-impl UserData for LibLoom {
-    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("get_content", |_, this: &SharedContentBlob, _: ()| {
-            Ok(BString::from(this.0.content.clone()))
-        });
-
-        methods.add_method(
-            "slice",
-            |_, this: &SharedContentBlob, (start, stop): (usize, usize)| {
-                let cropped = this.0.slice(start, stop)?;
-                Ok(SharedContentBlob(cropped.into()))
-            },
-        );
-
-        methods.add_method(
-            "read_f32",
-            |_, this: &SharedContentBlob, (start, stop): (usize, usize)| {
-                let fdata: &[f32] = match try_cast_slice(&this.0.content[start..stop]) {
-                    Ok(slice) => slice,
-                    Err(e) => return Err(anyhow!(e).into()),
-                };
-
-                Ok(fdata.to_vec())
-            },
-        );
-
-        methods.add_method(
-            "read_u32",
-            |_, this: &SharedContentBlob, (start, stop): (usize, usize)| {
-                let fdata: &[u32] = match try_cast_slice(&this.0.content[start..stop]) {
-                    Ok(slice) => slice,
-                    Err(e) => return Err(anyhow!(e).into()),
-                };
-
-                Ok(fdata.to_vec())
-            },
-        );
+    if let Some(p) = std::path::Path::new(infile).parent() {
+        globals.set("SCRIPTDIR", p.to_string_lossy())?;
     }
-}
+    globals.set("SCRIPTPATH", infile)?;
 
-pub trait VirtualFS {
-    pub fn 
-}
-
-impl LuaExecutor {
-    pub fn new() -> Result<Self> {
-        let lua = Lua::new();
-        lua.load(LUA_EMBEDS).exec()?;
-        Ok(Self { lua })
+    if let Ok(p) = std::path::absolute(infile) {
+        if let Some(p) = p.parent() {
+            globals.set("ABSSCRIPTDIR", p.to_string_lossy())?;
+        }
+        globals.set("ABSSCRIPTPATH", p.to_string_lossy())?;
     }
 
-    pub fn exec_config_script(script: )
+    lua.load(LUA_EMBEDS).exec()?;
+
+    Ok(())
 }
