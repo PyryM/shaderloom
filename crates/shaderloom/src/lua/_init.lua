@@ -109,7 +109,7 @@ local function format_primitive(val)
     local vt = type(val)
     if vt == "string" then
         return '[string] "' .. val .. '"'
-    elseif vt == "userdata" and v == null then
+    elseif vt == "userdata" and val == null then
         return '[null]'
     else
         return ("[%s] %s"):format(vt, tostring(val))
