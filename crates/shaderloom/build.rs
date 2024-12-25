@@ -36,7 +36,7 @@ fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String 
         .expect("Path is somehow not relative to root!")
         .to_str()
         .expect("Path is not a valid utf8 string!");
-    wrap_lua_file(&name, &entry.path())
+    wrap_lua_file(name, &entry.path())
 }
 
 fn wrap_lua_source_files<P: AsRef<Path>>(root: &P) -> String {
