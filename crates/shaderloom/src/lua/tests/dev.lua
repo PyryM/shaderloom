@@ -40,6 +40,9 @@ struct PrimeIndices {
 @group(0) @binding(0)
 var<storage,read_write> v_indices: PrimeIndices;
 
+@group(0) @binding(1)
+var tex_whatever: texture_multisampled_2d<f32>;
+
 // The Collatz Conjecture states that for any integer n:
 // If n is even, n = n/2
 // If n is odd, n = 3n+1

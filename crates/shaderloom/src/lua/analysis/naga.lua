@@ -1,3 +1,5 @@
+local deep_print = require "utils.deepprint"
+
 local naga = {}
 
 local type_mt = {}
@@ -259,24 +261,118 @@ local function fix_array(registry, s)
     return Type{kind="array", name=name, size=size, count=count, inner=inner, stride=stride}
 end
 
+local TEXTUREDIMS = {
+    D1 = "1d",
+    D2 = "2d",
+    D3 = "3d",
+    Cube = "cube"
+}
+
+local TEXCLASSES = {
+    D1 = {
+        Sampled = "",
+        Storage = ""
+    },
+    D2 = {
+
+    },
+    D3 = {
+
+    },
+    Cube = {
+
+    }
+}
+
+-- inner = {
+--     Image = {
+--         arrayed = [boolean] false,
+--         class = {
+--             Sampled = {
+--                 multi = [boolean] false,
+--                 kind = [string] "Float",
+--             },
+--         },
+--         dim = [string] "Cube",
+--     },
+-- },
+-- VAL = {
+--     name = [null],
+--     inner = {
+--         Image = {
+--             dim = [string] "D2",
+--             arrayed = [boolean] false,
+--             class = {
+--                 Sampled = {
+--                     kind = [string] "Float",
+--                     multi = [boolean] false,
+--                 },
+--             },
+--         },
+--     },
+-- },
+-- VAL = {
+--     dim = [string] "D2",
+--     class = {
+--         Storage = {
+--             access = [string] "STORE",
+--             format = [string] "Rgba8Unorm",
+--         },
+--     },
+--     arrayed = [boolean] false,
+-- },
+-- class = {
+--     Depth = {
+--         multi = [boolean] false,
+--     },
+-- },
+-- dim = [string] "D2",
+-- arrayed = [boolean] false,
+local function image_name(s)
+    local texclass = next(s.class)
+    local texname
+    if texclass == "Storage" then
+        texname = "texture_storage_"
+    else
+        if texclass == "Depth" then
+            texname = "texture_depth_"
+        else
+            texname = "texture_"
+        end
+        if s.class.multi then
+            texname = texname .. "multisampled_"
+        end
+    end
+
+end
+
+local function fix_image(registry, s)
+    if s.inner then s = s.inner.Image end
+    deep_print(s)
+    error("NYI")
+end
+
 local VARTYPES = {
     Scalar = fix_scalar,
     Vector = fix_vector,
     Matrix = fix_matrix,
     Struct = fix_struct,
     Array = fix_array,
+    Image = fix_image,
 }
 
 local function fix_and_register_type(registry, idx, t)
-    for name, fixer in pairs(VARTYPES) do
-        if t.inner[name] then
-            local fixed = assert(fixer(registry, t))
-            registry[idx] = fixed
-            registry[fixed.name] = fixed
-            return fixed
-        end
+    local enum_kind = next(t.inner)
+    local fixer = VARTYPES[enum_kind]
+    if not fixer then
+        deep_print(t)
+        error("Couldn't infer type of type " .. enum_kind)
     end
-    error("Couldn't infer type of type", idx)
+
+    local fixed = assert(fixer(registry, t))
+    registry[idx] = fixed
+    registry[fixed.name] = fixed
+    return fixed
 end
 
 local function fixup(data)
@@ -292,7 +388,7 @@ local function fixup(data)
 end
 
 function naga.parse(source)
-    return fixup(_naga_parse(source))
+    return fixup(loom:parse_wgsl(source))
 end
 
 return naga

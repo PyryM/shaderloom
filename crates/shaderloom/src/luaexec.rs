@@ -1,9 +1,29 @@
 use crate::globutils::glob_items;
 use crate::naga_parse::parse_wgsl;
 use anyhow::Result;
-use mlua::{Function, Lua, LuaSerdeExt};
+use mlua::{Function, Lua, LuaSerdeExt, UserData};
 
 static LUA_EMBEDS: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"));
+
+pub struct LuaLoomInterface {}
+
+impl LuaLoomInterface {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl UserData for LuaLoomInterface {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("glob", |_, _this: &Self, pattern: String| {
+            Ok(glob_items(&pattern)?)
+        });
+
+        methods.add_method("parse_wgsl", |_, _this: &Self, src: String| {
+            Ok(parse_wgsl(&src)?)
+        });
+    }
+}
 
 pub struct LuaExecutor {
     lua: Lua,
@@ -15,16 +35,7 @@ impl LuaExecutor {
         let globals = lua.globals();
 
         globals.set("null", lua.null()).unwrap();
-
-        let globber = lua
-            .create_function(|_, pattern: String| Ok(glob_items(&pattern)?))
-            .unwrap();
-        globals.set("_glob", globber).unwrap();
-
-        let parser = lua
-            .create_function(|_, src: String| Ok(parse_wgsl(&src)?))
-            .unwrap();
-        globals.set("_naga_parse", parser).unwrap();
+        globals.set("loom", LuaLoomInterface::new()).unwrap();
 
         lua.load(LUA_EMBEDS).exec().unwrap();
         Self { lua }
