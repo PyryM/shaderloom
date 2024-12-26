@@ -18,16 +18,16 @@ local function _deep_print(seen, printer, indent, key, val)
         printer(indent, ("%s = [already printed %s],"):format(key, seen[val]))
         return
     end
+    seen.count = (seen.count or 0) + 1
     seen[val] = ("table #%d"):format(seen.count)
-    seen.count = seen.count + 1
     printer(indent, ("%s = {"):format(key))
     local max_idx_printed = #val
     for idx = 1, max_idx_printed do
-        _deep_print(printer, indent+1, idx, val[idx])
+        _deep_print(seen, printer, indent+1, idx, val[idx])
     end
     for k, v in pairs(val) do
         if type(k) ~= "number" or k <= 0 or k > max_idx_printed then
-            _deep_print(printer, indent+1, k, v)
+            _deep_print(seen, printer, indent+1, k, v)
         end
     end
     printer(indent, "},")
@@ -37,7 +37,7 @@ local function deep_print(v)
     local function printer(indent, v)
         print((" "):rep(indent*4) .. tostring(v))
     end
-    _deep_print(printer, 0, "VAL", v)
+    _deep_print({}, printer, 0, "VAL", v)
 end
 
 return deep_print

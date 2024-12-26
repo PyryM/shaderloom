@@ -1,9 +1,5 @@
-print(SCRIPTDIR)
-print(ABSSCRIPTDIR)
-print(SCRIPTPATH)
-print(ABSSCRIPTPATH)
-
 local deep_print = require "utils.deepprint"
+local preprocess = require "preprocess.preprocessor"
 
 local files = {
     ["test_file_two.wgsl"] = [[
@@ -75,18 +71,21 @@ local resolver = function(name)
     return assert(files[name], "Missing " .. name)
 end
 
-local preprocess = require "preprocess.preprocessor"
-local processor = preprocess.Preprocessor(resolver)
+local function main()
+    local processor = preprocess.Preprocessor(resolver)
 
-processor:include("test_main.wgsl")
-local res = processor:get_output()
-print("------")
-print(res)
+    processor:include("test_main.wgsl")
+    local res = processor:get_output()
+    print("------")
+    print(res)
 
-processor:clear()
-processor:include("collatz.wgsl")
-local src = processor:get_output()
+    processor:clear()
+    processor:include("collatz.wgsl")
+    local src = processor:get_output()
 
-local naga = require "analysis.naga"
-local parsed = naga.parse(src)
-deep_print(parsed.types)
+    local naga = require "analysis.naga"
+    local parsed = naga.parse(src)
+    deep_print(parsed.types)
+end
+
+return main

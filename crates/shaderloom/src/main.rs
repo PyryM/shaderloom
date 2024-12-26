@@ -14,3 +14,14 @@ fn main() -> Result<()> {
     executor.run_script(&args[1])?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lua_dev() {
+        let executor = LuaExecutor::new();
+        executor.run_module("tests.dev").unwrap();
+    }
+}
