@@ -22,6 +22,11 @@ impl UserData for LuaLoomInterface {
         methods.add_method("parse_wgsl", |_, _this: &Self, src: String| {
             Ok(parse_wgsl(&src)?)
         });
+
+        methods.add_method("print", |_, _this: &Self, msg: String| {
+            println!("LUA: {}", msg);
+            Ok(())
+        });
     }
 }
 
@@ -41,9 +46,15 @@ impl LuaExecutor {
         Self { lua }
     }
 
-    pub fn run_module(&self, name: &str) -> Result<()> {
+    pub fn run_module(&self, module_name: &str) -> Result<()> {
         let run_module: Function = self.lua.globals().get("_run_module")?;
-        run_module.call::<()>(name)?;
+        run_module.call::<()>(module_name)?;
+        Ok(())
+    }
+
+    pub fn run_tests(&self, module_name: &str) -> Result<()> {
+        let run_tests: Function = self.lua.globals().get("_run_tests")?;
+        run_tests.call::<()>(module_name)?;
         Ok(())
     }
 

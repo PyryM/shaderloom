@@ -42,9 +42,6 @@ end
 
 function Preprocessor:process_source(source, name)
     local translated = chunker.translate_source(source)
-    print("TRANSLATED: vvvvvv", name)
-    print(translated)
-    print("^^^^^^^^")
     local chunk = assert(loadstring_env(translated, name, self.env))
     chunk()
 end
@@ -56,6 +53,18 @@ function Preprocessor:get_output()
     return table.concat(self.frags, "")
 end
 
+local tests = {}
+
+function tests.simple_translation()
+    local SRC = [[
+    @compute @workgroup_size(1)
+    fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+        v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
+    }
+    ]]
+end
+
 return {
-    Preprocessor = Preprocessor
+    Preprocessor = Preprocessor,
+    _tests = tests
 }

@@ -43,10 +43,7 @@ end
 ---@param src string
 ---@return string
 function chunker.translate_source(src)
-    local chunks = {}
-
     local cursor = 1
-    local tail = cursor
     local src_len = #src
 
     local frags = {}

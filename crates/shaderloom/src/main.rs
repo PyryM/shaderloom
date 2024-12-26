@@ -20,6 +20,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn lua_utils() {
+        LuaExecutor::new().run_tests("utils.stringmanip").unwrap();
+    }
+
+    #[test]
+    fn lua_preprocess() {
+        LuaExecutor::new().run_tests("preprocess.chunker").unwrap();
+        LuaExecutor::new()
+            .run_tests("preprocess.preprocessor")
+            .unwrap();
+    }
+
+    #[test]
     fn lua_dev() {
         let executor = LuaExecutor::new();
         executor.run_module("tests.dev").unwrap();

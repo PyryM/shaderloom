@@ -1,7 +1,5 @@
 local m = {}
 
-local unpack = unpack or table.unpack
-
 local class_mt_mt = {}
 function class_mt_mt.__call(cls, ...)
   local instance = setmetatable({}, cls)

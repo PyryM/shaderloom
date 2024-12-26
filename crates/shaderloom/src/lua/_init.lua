@@ -9,6 +9,10 @@
 local _require = require
 local _LOADED = {}
 
+print = function(...)
+    loom:print(table.concat({...}, " "))
+end
+
 for k, _v in pairs(_EMBED) do
     print(("> '%s'"):format(k))
 end
@@ -53,4 +57,26 @@ function _run_module(name)
     else
         print("Note: module", name, "doesn't have a .main!")
     end
+end
+
+-- test entry point from rust side
+function _run_tests(module_name)
+    local module = assert(require(module_name), "No module named " .. module_name)
+    local tests = module._tests
+    if not tests then
+        print("INFO: No tests for module " .. module_name)
+        return
+    end
+    local test_names = {}
+    for k, _ in pairs(tests) do table.insert(test_names, k) end
+    table.sort(test_names)
+    local had_errors = 0
+    for _, name in ipairs(test_names) do
+        local happy, err = pcall(tests[name])
+        if not happy then
+            print(("FAIL %s: %s"):format(name, err))
+            had_errors = had_errors + 1
+        end
+    end
+    if had_errors > 0 then error("Tests failed: " .. had_errors) end
 end
