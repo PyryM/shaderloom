@@ -104,6 +104,28 @@ function tests.inline_translation()
     assert(eq(expected, translated))
 end
 
+function tests.includes()
+    local dedent = require("utils.stringmanip").dedent
+    local eq = require("utils.deepeq").streq
+    local files = {
+        MAIN=dedent[[
+        #include "other"
+        fn eh() {
+        }
+        ]],
+        other=dedent[[
+        @compute @workgroup_size(1)
+        ]]
+    }
+    local expected = dedent[[
+    @compute @workgroup_size(1)
+    fn eh() {
+    }
+    ]]
+    local translated = test_proc(files)
+    assert(eq(expected, translated))
+end
+
 return {
     Preprocessor = Preprocessor,
     _tests = tests
