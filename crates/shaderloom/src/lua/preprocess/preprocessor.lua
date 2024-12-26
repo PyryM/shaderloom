@@ -55,13 +55,53 @@ end
 
 local tests = {}
 
-function tests.simple_translation()
-    local SRC = [[
+local function test_proc(files)
+    local resolver = function(name)
+        return assert(files[name], "Missing " .. name)
+    end
+    local pp = Preprocessor(resolver)
+    pp:include("MAIN")
+    return pp:get_output()
+end
+
+function tests.identity_translation()
+    local dedent = require("utils.stringmanip").dedent
+    local eq = require("utils.deepeq").streq
+    local files = {
+        MAIN=dedent[[
+        @compute @workgroup_size(1)
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
+        }
+        ]]
+    }
+    local translated = test_proc(files)
+    assert(eq(files.MAIN, translated))
+end
+
+function tests.inline_translation()
+    local dedent = require("utils.stringmanip").dedent
+    local eq = require("utils.deepeq").streq
+    local files = {
+        MAIN=dedent[[
+        # function one() 
+        #   return 1
+        # end
+        @compute @workgroup_size(${{one()}})
+        #-- a preprocessor comment
+        fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
+        }
+        ]]
+    }
+    local expected = dedent[[
     @compute @workgroup_size(1)
     fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
     }
     ]]
+    local translated = test_proc(files)
+    assert(eq(expected, translated))
 end
 
 return {
