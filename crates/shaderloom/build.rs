@@ -25,7 +25,7 @@ use std::path::Path;
 // to first check the _EMBED table for a file.
 
 fn wrap_lua_file<P: AsRef<Path>>(name: &str, src: &P) -> String {
-    let data = fs::read_to_string(src).expect("Failed to read file!");
+    let data = fs::read_to_string(src).expect(name);
     format!("_EMBED['{}'] = function()\n{}\nend", name, data)
 }
 
@@ -39,11 +39,19 @@ fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String 
     wrap_lua_file(name, &entry.path())
 }
 
+fn has_extension(e: &walkdir::DirEntry, ext: &str) -> bool {
+    if let Some(pext) = e.path().extension() {
+        pext == ext
+    } else {
+        false
+    }
+}
+
 fn wrap_lua_source_files<P: AsRef<Path>>(root: &P) -> String {
     let embeds: Vec<String> = walkdir::WalkDir::new(root)
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|e| !e.file_type().is_dir())
+        .filter(|e| !e.file_type().is_dir() && has_extension(e, "lua"))
         .map(|entry| wrap_entry(root, entry))
         .collect();
     embeds.join("\n")
