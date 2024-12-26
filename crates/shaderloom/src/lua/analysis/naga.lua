@@ -269,19 +269,15 @@ local TEXTUREDIMS = {
 }
 
 local TEXCLASSES = {
-    D1 = {
-        Sampled = "",
-        Storage = ""
-    },
-    D2 = {
+    Storage = "texture_storage",
+    Depth = "texture_depth",
+    Sampled = "texture"
+}
 
-    },
-    D3 = {
-
-    },
-    Cube = {
-
-    }
+local TEXSAMPLEFORMATS = {
+    Float = "f32",
+    Sint = "i32",
+    Uint = "u32",
 }
 
 -- inner = {
@@ -328,28 +324,65 @@ local TEXCLASSES = {
 -- },
 -- dim = [string] "D2",
 -- arrayed = [boolean] false,
-local function image_name(s)
-    local texclass = next(s.class)
-    local texname
-    if texclass == "Storage" then
-        texname = "texture_storage_"
-    else
-        if texclass == "Depth" then
-            texname = "texture_depth_"
-        else
-            texname = "texture_"
-        end
-        if s.class.multi then
-            texname = texname .. "multisampled_"
-        end
+local function image_name(s, classname, class)
+    local texname = assert(TEXCLASSES[classname])
+    if class.multi then
+        texname = texname .. "_multisampled"
     end
-
+    texname = texname .. "_" .. TEXTUREDIMS[s.dim]
+    if s.arrayed then
+        texname = texname .. "_array"
+    end
+    if class.kind then
+        texname = texname .. "<" .. TEXSAMPLEFORMATS[class.kind] .. ">"
+    elseif class.format then
+        texname = texname .. ("<%s,%s>"):format(class.format, class.access)
+    end
+    return texname
 end
 
 local function fix_image(registry, s)
     if s.inner then s = s.inner.Image end
-    deep_print(s)
-    error("NYI")
+    local classname = next(s.class)
+    local class = s.class[classname]
+    local name = image_name(s, classname, class)
+    local dim = TEXTUREDIMS[s.dim]
+    local format = nil
+    if class.kind then
+        format = TEXCLASSES[class.kind]
+    elseif class.format then
+        format = class.format:lower()
+    end
+    return Type{
+        kind="texture",
+        name=name,
+        class=classname:lower(),
+        array=s.arrayed,
+        dimension=dim,
+        format=format,
+        access=class.access,
+        multisampled=class.multi
+    }
+end
+
+local function fix_sampler(registry, s)
+    if s.inner then s = s.inner.Sampler end
+    local name = s.comparison and "sampler_comparison" or "sampler"
+    return Type{
+        kind="sampler",
+        name=name,
+        comparison=s.comparison
+    }
+end
+
+local function fix_atomic(registry, s)
+    if s.inner then s = s.inner.Atomic end
+    local inner = fix_scalar(registry, s)
+    return Type{
+        kind="atomic",
+        name=("atomic<%s>"):format(inner.name),
+        inner=inner,
+    }
 end
 
 local VARTYPES = {
@@ -359,6 +392,8 @@ local VARTYPES = {
     Struct = fix_struct,
     Array = fix_array,
     Image = fix_image,
+    Sampler = fix_sampler,
+    Atomic = fix_atomic,
 }
 
 local function fix_and_register_type(registry, idx, t)
@@ -382,9 +417,12 @@ local function fixup(data)
     local types = data.types
     local tcount = #types
     for idx = 1, tcount do
-        types[idx] = fix_and_register_type(registry, idx-1, types[idx])
+        fix_and_register_type(registry, idx-1, types[idx])
     end
-    return data
+    return {
+        raw=data,
+        types=registry
+    }
 end
 
 function naga.parse(source)

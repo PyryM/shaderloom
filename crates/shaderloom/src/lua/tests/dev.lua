@@ -43,6 +43,15 @@ var<storage,read_write> v_indices: PrimeIndices;
 @group(0) @binding(1)
 var tex_whatever: texture_multisampled_2d<f32>;
 
+@group(0) @binding(2)
+var samp_a: sampler;
+
+@group(0) @binding(3)
+var samp_b: sampler_comparison;
+
+@group(0) @binding(4)
+var<storage, read_write> atomic_array: array<atomic<u32>>;
+
 // The Collatz Conjecture states that for any integer n:
 // If n is even, n = n/2
 // If n is odd, n = 3n+1
@@ -89,6 +98,8 @@ local function main()
     local naga = require "analysis.naga"
     local parsed = naga.parse(src)
     deep_print(parsed.types)
+
+    error("eh")
 end
 
 return main
