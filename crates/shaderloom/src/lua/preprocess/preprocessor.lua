@@ -1,6 +1,17 @@
 local class = require "miniclass"
 local chunker = require "preprocess.chunker"
 
+local Annotator = class "Annotator"
+function Annotator:init(payload)
+    self.payload = payload
+end
+
+function Annotator:capture(source)
+    local p = self.payload
+    p.capture = {source:match(p.pattern, p.position)}
+    return p
+end
+
 local Preprocessor = class "Preprocessor"
 
 function Preprocessor:init(resolver)
@@ -8,13 +19,15 @@ function Preprocessor:init(resolver)
     self:clear()
 end
 
-function Preprocessor:emit(src)
+function Preprocessor:emit_raw(src)
+    src = tostring(src)
     table.insert(self.frags, src)
-    --self:process_source(src) -- not sure if recursing here is a good idea
+    self.annotation_cursor = self.annotation_cursor + #src
 end
 
-function Preprocessor:emit_raw(src)
-    table.insert(self.frags, src)
+function Preprocessor:emit(src)
+    self:emit_raw(src)
+    --self:process_source(src) -- not sure if recursing here is a good idea
 end
 
 function Preprocessor:include(name)
@@ -30,6 +43,8 @@ end
 
 function Preprocessor:clear()
     self.frags = {}
+    self.annotation_cursor = 1
+    self.annotations = {}
     self.env = {
         emit = self:_bind("emit"),
         emit_raw = self:_bind("emit_raw"),
@@ -47,10 +62,12 @@ function Preprocessor:process_source(source, name)
 end
 
 function Preprocessor:get_output()
-    for _, v in ipairs(self.frags) do
-        print('"' .. v .. '"')
+    local output = table.concat(self.frags, "")
+    local annotations = {}
+    for idx, annotator in ipairs(self.annotations) do
+        annotations[idx] = annotator:capture(output)
     end
-    return table.concat(self.frags, "")
+    return output, annotations
 end
 
 local tests = {}
