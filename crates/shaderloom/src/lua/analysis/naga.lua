@@ -16,6 +16,7 @@ local SCALARS = {
     Uint = "u",
     Sint = "i",
     Float = "f",
+    bool = Type{kind="scalar", name="bool", size=4}, -- size of bool: ?
     f32 = Type{kind="scalar", name="f32", size=4},
     f16 = Type{kind="scalar", name="f16", size=2},
     u32 = Type{kind="scalar", name="u32", size=4},
@@ -24,6 +25,7 @@ local SCALARS = {
 
 local function fix_scalar(registry, s)
     if s.inner then s = s.inner.Scalar end
+    if s.kind == "Bool" then return SCALARS.bool end
     local prefix = assert(SCALARS[s.kind])
     local bitwidth = s.width * 8
     local name = ("%s%d"):format(prefix, bitwidth)
@@ -198,24 +200,134 @@ local function fix_and_register_type(registry, idx, t)
     registry[fixed.name] = fixed
     return fixed
 end
+--     global_variables = {
+--          1 = {
+--              space = {
+--                  Storage = {
+--                      access = [string] "LOAD | STORE",
+--                  },
+--              },
+--              ty = [number] 10,
+--              name = [string] "v_indices",
+--              init = [null],
+--              binding = {
+--                  binding = [number] 0,
+--                  group = [number] 0,
+--              },
+--          },
+--          2 = {
+--              space = [string] "Handle",
+--              ty = [number] 11,
+--              name = [string] "tex_whatever",
+--              init = [null],
+--              binding = {
+--                  binding = [number] 1,
+--                  group = [number] 0,
+--              },
+--          },
+--          3 = {
+--              space = [string] "Handle",
+--              ty = [number] 12,
+--              name = [string] "samp_a",
+--              init = [null],
+--              binding = {
+--                  binding = [number] 2,
+--                  group = [number] 0,
+--              },
+--          },
+--          4 = {
+--              space = [string] "Handle",
+--              ty = [number] 13,
+--              name = [string] "samp_b",
+--              init = [null],
+--              binding = {
+--                  binding = [number] 3,
+--                  group = [number] 0,
+--              },
+--          },
+--          5 = {
+--              space = {
+--                  Storage = {
+--                      access = [string] "LOAD | STORE",
+--                  },
+--              },
+--              ty = [number] 15,
+--              name = [string] "atomic_array",
+--              init = [null],
+--              binding = {
+--                  binding = [number] 4,
+--                  group = [number] 0,
+--              },
+--          },
+
+
+
+local function fix_and_register_var(registry, vars, item)
+    local space, access = nil, nil
+    if type(item.space) == "string" then
+        space = item.space:lower()
+    else
+        space = next(item.space)
+        access = item.space[space].access
+    end
+    local ty = assert(registry[item.ty])
+    local binding = fixnull(item.binding)
+    vars[item.name] = {
+        name = item.name,
+        ty = ty,
+        space = space,
+        access = access,
+        binding = binding,
+    }
+end
 
 local function fixup(data)
     data = data.module
     -- fix types first off
     local registry = {}
-    local types = data.types
-    local tcount = #types
-    for idx = 1, tcount do
-        fix_and_register_type(registry, idx-1, types[idx])
+    for idx, t in ipairs(data.types) do
+        fix_and_register_type(registry, idx-1, t)
     end
+    local vars = {}
+    for _, var in ipairs(data.global_variables) do
+        fix_and_register_var(registry, vars, var)
+    end
+    deep_print(data)
     return {
         raw=data,
-        types=registry
+        types=registry,
+        vars=vars,
     }
 end
 
 function naga.parse(source)
     return fixup(loom:parse_wgsl(source))
+end
+
+local tests = {}
+naga._tests = tests
+
+function tests:parse_primitives()
+    local src = [[
+    var<workgroup> v_u32: u32 = 0;
+    var<workgroup> v_i32: i32 = 0;
+    var<workgroup> v_f32: f32 = 0.0;
+    var<workgroup> v_bool: bool = false;
+
+    @compute @workgroup_size(1) fn main() {}
+    ]]
+
+    local parsed = naga.parse(src)
+    local types, vars = parsed.types, parsed.vars
+    assert(types.u32 == SCALARS.u32, "u32 parsed as scalar")
+    assert(types.i32 == SCALARS.i32, "i32 parsed as scalar")
+    assert(types.f32 == SCALARS.f32, "f32 parsed as scalar")
+    assert(types.bool == SCALARS.bool, "bool parsed as scalar")
+
+    assert(vars.v_u32.ty == SCALARS.u32, "parsed var v_u32")
+    assert(vars.v_i32.ty == SCALARS.i32, "parsed var v_i32")
+    assert(vars.v_f32.ty == SCALARS.f32, "parsed var v_f32")
+    assert(vars.v_bool.ty == SCALARS.bool, "parsed var v_bool")
 end
 
 return naga

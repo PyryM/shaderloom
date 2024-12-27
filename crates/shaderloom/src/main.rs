@@ -33,6 +33,11 @@ mod tests {
     }
 
     #[test]
+    fn lua_naga() {
+        LuaExecutor::new().run_tests("analysis.naga").unwrap();
+    }
+
+    #[test]
     fn lua_dev() {
         let executor = LuaExecutor::new();
         executor.run_module("tests.dev").unwrap();
