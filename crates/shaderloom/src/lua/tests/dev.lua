@@ -40,6 +40,7 @@ struct PrimeIndices {
 @group(0) @binding(0)
 var<storage,read_write> v_indices: PrimeIndices;
 
+# visibility{"compute", "vertex", "fragment"}
 @group(0) @binding(1)
 var tex_whatever: texture_multisampled_2d<f32>;
 
@@ -99,7 +100,7 @@ local function main()
     local parsed = naga.parse(src)
     deep_print(parsed.types)
 
-    error("eh")
+    --error("eh")
 end
 
 return main

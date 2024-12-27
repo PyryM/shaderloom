@@ -1,17 +1,6 @@
 local class = require "miniclass"
 local chunker = require "preprocess.chunker"
 
-local Annotator = class "Annotator"
-function Annotator:init(payload)
-    self.payload = payload
-end
-
-function Annotator:capture(source)
-    local p = self.payload
-    p.capture = {source:match(p.pattern, p.position)}
-    return p
-end
-
 local Preprocessor = class "Preprocessor"
 
 function Preprocessor:init(resolver)
@@ -28,6 +17,49 @@ end
 function Preprocessor:emit(src)
     self:emit_raw(src)
     --self:process_source(src) -- not sure if recursing here is a good idea
+end
+
+function Preprocessor:annotate(annotator, args)
+    table.insert(self.annotations, {
+        eval=annotator,
+        pos=self.annotation_cursor,
+        args=args
+    })
+end
+
+-- captures name from e.g., "var tex_whatever: texture_multisampled_2d<f32>;"
+local VISIBILITY_PATT_BARE = "var%s+([^%s:]*)%s*:"
+local VISIBILITY_PATT_TEMPLATE = "var%s*%b<>%s*([^%s:]*)%s*:"
+local function _annotate_visibility(call_info, source)
+    local end_pos = source:find(";", call_info.pos)
+    local statement = source:sub(call_info.pos, end_pos)
+    print("STATEMENT", statement)
+    local var_name = assert(
+        statement:match(VISIBILITY_PATT_TEMPLATE)
+        or statement:match(VISIBILITY_PATT_BARE),
+        "Unmatched visibility annotation"
+    )
+    print("VAR NAME:", var_name, #var_name)
+    return "visibility", var_name, call_info.args
+end
+
+local function set(items)
+    local s = {}
+    for _, item in ipairs(items) do
+        s[item] = true
+    end
+    return s
+end
+
+function Preprocessor:annotate_visibility(...)
+    -- handle calling both as 
+    -- visibility("fragment", "vertex") and
+    -- visibility{"fragment", "vertex"}
+    local args = {...}
+    if #args == 1 and type(args[1]) == 'table' then
+        args = args[1]
+    end
+    self:annotate(_annotate_visibility, set(args))
 end
 
 function Preprocessor:include(name)
@@ -48,7 +80,8 @@ function Preprocessor:clear()
     self.env = {
         emit = self:_bind("emit"),
         emit_raw = self:_bind("emit_raw"),
-        include = self:_bind("include")
+        include = self:_bind("include"),
+        visibility = self:_bind("annotate_visibility"),
     }
     setmetatable(self.env, {
         __index = _G
@@ -63,9 +96,12 @@ end
 
 function Preprocessor:get_output()
     local output = table.concat(self.frags, "")
-    local annotations = {}
-    for idx, annotator in ipairs(self.annotations) do
-        annotations[idx] = annotator:capture(output)
+    local annotations = {visibility={}}
+    for _, annotator in ipairs(self.annotations) do
+        local category, name, annotation = annotator:eval(output)
+        if category and name then
+            annotations[category][name] = annotation
+        end
     end
     return output, annotations
 end
@@ -141,6 +177,36 @@ function tests.includes()
     ]]
     local translated = test_proc(files)
     assert(eq(expected, translated))
+end
+
+function tests.visibility_annotation()
+    local deq = require("utils.deepeq").dict_exact_equal
+    local seq = require("utils.deepeq").streq
+    assert(seq(
+        ("var < workgroup > foo : u32"):match(VISIBILITY_PATT_TEMPLATE, 1),
+        "foo"
+    ))
+    assert(seq(
+        ("var tex_whatever: texture_2d<f32>;"):match(VISIBILITY_PATT_BARE, 1),
+        "tex_whatever"
+    ))
+
+    local dedent = require("utils.stringmanip").dedent
+    local files = {
+        MAIN=dedent[[
+        # visibility "fragment"
+        var < workgroup > foo : u32;
+        # visibility("fragment", "vertex")
+        var tex_whatever: texture_2d<f32>;
+        # visibility{"vertex"}
+        @binding(0) @group(12)
+        var<storage, read_write > v_ehhhh_32 : array<f32>;
+        ]],
+    }
+    local _translated, annotations = test_proc(files)
+    assert(deq(annotations.visibility.foo, {fragment=true}))
+    assert(deq(annotations.visibility.tex_whatever, {fragment=true, vertex=true}))
+    assert(deq(annotations.visibility.v_ehhhh_32, {vertex=true}))
 end
 
 return {
