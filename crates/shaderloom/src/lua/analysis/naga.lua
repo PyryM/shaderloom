@@ -7,129 +7,11 @@ local function Type(t)
     return setmetatable(t, type_mt)
 end
 
--- types = {
---     1 = {
---         name = [null],
---         inner = {
---             Scalar = {
---                 width = [number] 4,
---                 kind = [string] "Float",
---             },
---         },
---     },
---     2 = {
---         name = [null],
---         inner = {
---             Vector = {
---                 scalar = {
---                     width = [number] 4,
---                     kind = [string] "Float",
---                 },
---                 size = [string] "Quad",
---             },
---         },
---     },
---     3 = {
---         name = [string] "Hmm",
---         inner = {
---             Struct = {
---                 span = [number] 32,
---                 members = {
---                     1 = {
---                         binding = [null],
---                         ty = [number] 1,
---                         name = [string] "x",
---                         offset = [number] 0,
---                     },
---                     2 = {
---                         binding = [null],
---                         ty = [number] 0,
---                         name = [string] "y",
---                         offset = [number] 16,
---                     },
---                 },
---             },
---         },
---     },
---     4 = {
---         name = [null],
---         inner = {
---             Array = {
---                 size = {
---                     Constant = [number] 100,
---                 },
---                 base = [number] 2,
---                 stride = [number] 32,
---             },
---         },
---     },
---     5 = {
---         name = [null],
---         inner = {
---             Scalar = {
---                 width = [number] 4,
---                 kind = [string] "Uint",
---             },
---         },
---     },
---     6 = {
---         name = [null],
---         inner = {
---             Array = {
---                 size = [string] "Dynamic",
---                 base = [number] 4,
---                 stride = [number] 4,
---             },
---         },
---     },
---     7 = {
---         name = [string] "PrimeIndices",
---         inner = {
---             Struct = {
---                 span = [number] 3216,
---                 members = {
---                     1 = {
---                         binding = [null],
---                         ty = [number] 3,
---                         name = [string] "erm",
---                         offset = [number] 0,
---                     },
---                     2 = {
---                         binding = [null],
---                         ty = [number] 5,
---                         name = [string] "data",
---                         offset = [number] 3200,
---                     },
---                 },
---             },
---         },
---     },
---     8 = {
---         name = [null],
---         inner = {
---             Vector = {
---                 scalar = {
---                     width = [number] 4,
---                     kind = [string] "Uint",
---                 },
---                 size = [string] "Tri",
---             },
---         },
---     },
--- },
-
 local function fixnull(val)
     if val == null then return nil end
     return val
 end
 
---         name = [null],
---         inner = {
---             Scalar = {
---                 width = [number] 4,
---                 kind = [string] "Uint",
---             },
---         },
 local SCALARS = {
     Uint = "u",
     Sint = "i",
@@ -139,6 +21,7 @@ local SCALARS = {
     u32 = Type{kind="scalar", name="u32", size=4},
     i32 = Type{kind="scalar", name="i32", size=4},
 }
+
 local function fix_scalar(registry, s)
     if s.inner then s = s.inner.Scalar end
     local prefix = assert(SCALARS[s.kind])
@@ -147,21 +30,12 @@ local function fix_scalar(registry, s)
     return assert(SCALARS[name])
 end
 
--- inner = {
---     Vector = {
---         size = [string] "Quad",
---         scalar = {
---             kind = [string] "Float",
---             width = [number] 4,
---         },
---     },
--- },
--- name = [null],
 local VECSIZES = {
     Bi = 2,
     Tri = 3,
     Quad = 4,
 }
+
 local function fix_vector(registry, s)
     if s.inner then s = s.inner.Vector end
     local inner = fix_scalar(registry, s.scalar)
@@ -171,17 +45,6 @@ local function fix_vector(registry, s)
     return Type{kind="vector", name=name, inner=inner, size=size, count=count}
 end
 
--- inner = {
---     Matrix = {
---         rows = [string] "Quad",
---         scalar = {
---             kind = [string] "Float",
---             width = [number] 4,
---         },
---         columns = [string] "Quad",
---     },
--- },
--- name = [null],
 local function fix_matrix(registry, s)
     if s.inner then s = s.inner.Matrix end
     local rows = VECSIZES[s.rows]
@@ -192,26 +55,6 @@ local function fix_matrix(registry, s)
     return Type{kind="matrix", name=name, inner=inner, size=size, rows=rows, cols=cols}
 end
 
--- inner = {
---     Struct = {
---         span = [number] 12816,
---         members = {
---             1 = {
---                 binding = [null],
---                 name = [string] "erm",
---                 offset = [number] 0,
---                 ty = [number] 8,
---             },
---             2 = {
---                 binding = [null],
---                 name = [string] "data",
---                 offset = [number] 12800,
---                 ty = [number] 9,
---             },
---         },
---     },
--- },
--- name = [string] "PrimeIndices",
 local function fix_struct(registry, s)
     local name = s.name
     s = s.inner.Struct
@@ -227,16 +70,6 @@ local function fix_struct(registry, s)
     return Type{kind="struct", name=name, size=s.span, members=members}
 end
 
--- inner = {
---     Array = {
---         stride = [number] 128,
---         base = [number] 7,
---         size = {
---             Constant = [number] 100,
---         },
---     },
--- },
--- name = [null],
 local function fix_array_count(count)
     if count == "Dynamic" then return nil end
     if count.Constant then return count.Constant end
@@ -280,50 +113,6 @@ local TEXSAMPLEFORMATS = {
     Uint = "u32",
 }
 
--- inner = {
---     Image = {
---         arrayed = [boolean] false,
---         class = {
---             Sampled = {
---                 multi = [boolean] false,
---                 kind = [string] "Float",
---             },
---         },
---         dim = [string] "Cube",
---     },
--- },
--- VAL = {
---     name = [null],
---     inner = {
---         Image = {
---             dim = [string] "D2",
---             arrayed = [boolean] false,
---             class = {
---                 Sampled = {
---                     kind = [string] "Float",
---                     multi = [boolean] false,
---                 },
---             },
---         },
---     },
--- },
--- VAL = {
---     dim = [string] "D2",
---     class = {
---         Storage = {
---             access = [string] "STORE",
---             format = [string] "Rgba8Unorm",
---         },
---     },
---     arrayed = [boolean] false,
--- },
--- class = {
---     Depth = {
---         multi = [boolean] false,
---     },
--- },
--- dim = [string] "D2",
--- arrayed = [boolean] false,
 local function image_name(s, classname, class)
     local texname = assert(TEXCLASSES[classname])
     if class.multi then
