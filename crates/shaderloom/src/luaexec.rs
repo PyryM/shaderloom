@@ -36,13 +36,14 @@ pub struct LuaExecutor {
 
 impl LuaExecutor {
     pub fn new() -> Self {
-        let lua = Lua::new();
+        // need to create "unsafe" Lua state to have 'debug' Lua library
+        let lua = unsafe { Lua::unsafe_new() };
         let globals = lua.globals();
 
         globals.set("null", lua.null()).unwrap();
         globals.set("loom", LuaLoomInterface::new()).unwrap();
 
-        lua.load(LUA_EMBEDS).exec().unwrap();
+        lua.load(LUA_EMBEDS).set_name("=<BUNDLE>").exec().unwrap();
         Self { lua }
     }
 

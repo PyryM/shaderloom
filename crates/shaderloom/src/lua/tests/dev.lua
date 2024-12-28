@@ -100,7 +100,7 @@ local function main()
     local parsed = naga.parse(src)
     deep_print(parsed.types)
 
-    --error("eh")
+    error("eh")
 end
 
 return main

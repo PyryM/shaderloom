@@ -26,7 +26,7 @@ use std::path::Path;
 
 fn wrap_lua_file<P: AsRef<Path>>(name: &str, src: &P) -> String {
     let data = fs::read_to_string(src).expect(name);
-    format!("_EMBED['{}'] = function()\n{}\nend", name, data)
+    format!("_SOURCE_START('{}') _EMBED['{}'] = function()\n{}\nend", name, name, data)
 }
 
 fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String {
@@ -61,8 +61,15 @@ fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("embedded_lua_bundle.lua");
 
+    let preamble = "
+    local _LINES = {}
+    local function _SOURCE_START(name)
+        table.insert(_LINES, {debug.getinfo(2, 'l').currentline, name})
+    end
+    local _EMBED = {}
+    ";
     let embeds = wrap_lua_source_files(&"src/lua".to_string());
-    let source = format!("local _EMBED={{}}\n{}\n_EMBED['_init.lua']()", embeds);
+    let source = format!("{}\n{}\n_EMBED['_init.lua']()", preamble, embeds);
 
     fs::write(&dest_path, source).expect("Failed to write embedded bundle.");
     println!("cargo::rerun-if-changed=build.rs");
