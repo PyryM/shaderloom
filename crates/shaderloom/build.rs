@@ -26,7 +26,10 @@ use std::path::Path;
 
 fn wrap_lua_file<P: AsRef<Path>>(name: &str, src: &P) -> String {
     let data = fs::read_to_string(src).expect(name);
-    format!("_SOURCE_START('{}') _EMBED['{}'] = function()\n{}\nend", name, name, data)
+    format!(
+        "_SOURCE_START('{}') _EMBED['{}'] = function()\n{}\nend",
+        name, name, data
+    )
 }
 
 fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String {
@@ -35,8 +38,9 @@ fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String 
         .strip_prefix(root_dir)
         .expect("Path is somehow not relative to root!")
         .to_str()
-        .expect("Path is not a valid utf8 string!");
-    wrap_lua_file(name, &entry.path())
+        .expect("Path is not a valid utf8 string!")
+        .replace("\\", "/"); // handle windows paty separators
+    wrap_lua_file(&name, &entry.path())
 }
 
 fn has_extension(e: &walkdir::DirEntry, ext: &str) -> bool {
