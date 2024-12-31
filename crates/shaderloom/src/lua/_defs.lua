@@ -17,5 +17,5 @@ function loom:print(msg) end
 ---@class null
 null = {}
 
----@type { [string]: string }
+---@type { [string]: function }
 _EMBED = {}

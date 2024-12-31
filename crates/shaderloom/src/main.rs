@@ -39,7 +39,6 @@ mod tests {
 
     #[test]
     fn lua_dev() {
-        let executor = LuaExecutor::new();
-        executor.run_module("tests.dev").unwrap();
+        LuaExecutor::new().run_tests("tests.dev").unwrap();
     }
 }

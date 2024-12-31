@@ -24,7 +24,7 @@ impl UserData for LuaLoomInterface {
         });
 
         methods.add_method("print", |_, _this: &Self, msg: String| {
-            println!("LUA: {}", msg);
+            println!("{}", msg);
             Ok(())
         });
     }

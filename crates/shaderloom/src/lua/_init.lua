@@ -9,6 +9,8 @@
 local _require = require
 local _LOADED = {}
 
+_EMBED["_termcolor.lua"]()
+
 print = function(...)
     loom:print(table.concat({...}, " "))
 end
@@ -20,13 +22,13 @@ end
 require = function(name)
     local fn = name:gsub("%.", "/") .. ".lua"
     if _LOADED[name] then return _LOADED[name] end
-    if _EMBED[fn] then 
-        print(("Loading '%s'"):format(name))
+    if _EMBED[fn] then
+        print(("Loading '%s'"):format(name):blue())
         _LOADED[name] = _EMBED[fn]()
         if _LOADED[name] == nil then _LOADED[name] = true end
         return _LOADED[name]
     end
-    print(("Didn't find '%s', trying regular require!"):format(fn))
+    print(("Didn't find '%s', trying regular require!"):format(fn):yellow())
     return _require(name)
 end
 
@@ -62,7 +64,12 @@ end
 -- test entry point from rust side
 function _run_tests(module_name)
     local module = assert(require(module_name), "No module named " .. module_name)
-    local tests = module._tests
+    local tests
+    if type(module) == 'function' then
+        tests = {[module_name] = module}
+    elseif module._tests then
+        tests = module._tests
+    end
     if not tests then
         print("INFO: No tests for module " .. module_name)
         return
@@ -74,7 +81,7 @@ function _run_tests(module_name)
     for _, name in ipairs(test_names) do
         local happy, err = pcall(tests[name])
         if not happy then
-            print(("FAIL %s: %s"):format(name, err))
+            print(("FAIL %s: %s"):format(name, err):red())
             had_errors = had_errors + 1
         end
     end
