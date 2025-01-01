@@ -34,8 +34,10 @@ function deepeq.dict_superset_equal(a, b)
     end
     for k, v in pairs(a) do
         local eq, reason = deepeq.equals(v, b[k])
+        local skey = k
+        if type(skey) == 'string' then skey = '"' .. skey .. '"' end
         if not eq then
-            return false, ("a[%s] ~= b[%s]: %s"):format(k, k, reason)
+            return false, ("a[%s] ~= b[%s]: %s"):format(skey, skey, reason)
         end
     end
     return true

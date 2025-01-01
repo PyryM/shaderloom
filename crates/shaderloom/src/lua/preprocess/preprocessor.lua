@@ -27,19 +27,29 @@ function Preprocessor:annotate(annotator, args)
     })
 end
 
+local function identity_annotation(tab)
+    return tab.category, tab.name, tab.payload
+end
+function Preprocessor:_pre_annotate(category, name, payload)
+    table.insert(self.annotations, {
+        category = category,
+        name = name,
+        payload = payload,
+        eval = identity_annotation
+    })
+end
+
 -- captures name from e.g., "var tex_whatever: texture_multisampled_2d<f32>;"
 local VISIBILITY_PATT_BARE = "var%s+([^%s:]*)%s*:"
 local VISIBILITY_PATT_TEMPLATE = "var%s*%b<>%s*([^%s:]*)%s*:"
 local function _annotate_visibility(call_info, source)
     local end_pos = source:find(";", call_info.pos)
     local statement = source:sub(call_info.pos, end_pos)
-    print("STATEMENT", statement)
     local var_name = assert(
         statement:match(VISIBILITY_PATT_TEMPLATE)
         or statement:match(VISIBILITY_PATT_BARE),
         "Unmatched visibility annotation"
     )
-    print("VAR NAME:", var_name, #var_name)
     return "visibility", var_name, call_info.args
 end
 
@@ -62,6 +72,14 @@ function Preprocessor:annotate_visibility(...)
     self:annotate(_annotate_visibility, set(args))
 end
 
+function Preprocessor:annotate_bindgroup(args)
+    assert(type(args) == "table", "bindgroup{} expects a table argument!")
+    local id = assert(args.id or args[1], "missing .id in bindgroup{...}!")
+    local name = args.name or ("bindgroup_" .. id)
+    local shared = not not args.shared
+    self:_pre_annotate("bindgroups", name, {id=id, name=name, shared=shared})
+end
+
 function Preprocessor:include(name)
     self:process_source(self.resolver(name), name)
 end
@@ -82,6 +100,7 @@ function Preprocessor:clear()
         emit_raw = self:_bind("emit_raw"),
         include = self:_bind("include"),
         visibility = self:_bind("annotate_visibility"),
+        bindgroup = self:_bind("annotate_bindgroup"),
     }
     setmetatable(self.env, {
         __index = _G
@@ -96,7 +115,7 @@ end
 
 function Preprocessor:get_output()
     local output = table.concat(self.frags, "")
-    local annotations = {visibility={}}
+    local annotations = {visibility={}, bindgroups={}}
     for _, annotator in ipairs(self.annotations) do
         local category, name, annotation = annotator:eval(output)
         if category and name then
@@ -207,6 +226,25 @@ function tests.visibility_annotation()
     assert(deq(annotations.visibility.foo, {fragment=true}))
     assert(deq(annotations.visibility.tex_whatever, {fragment=true, vertex=true}))
     assert(deq(annotations.visibility.v_ehhhh_32, {vertex=true}))
+end
+
+function tests.bindgroup_annotation()
+    local deq = require("utils.deepeq").dict_exact_equal
+    local seq = require("utils.deepeq").streq
+
+    local dedent = require("utils.stringmanip").dedent
+    local files = {
+        MAIN=dedent[[
+        # bindgroup{0, name="uniforms", shared=true}
+        # bindgroup{
+        #   id=2,
+        #   name="foobar"
+        # }
+        ]],
+    }
+    local _translated, annotations = test_proc(files)
+    assert(deq(annotations.bindgroups.uniforms, {id=0, name="uniforms", shared=true}))
+    assert(deq(annotations.bindgroups.foobar, {id=2, name="foobar", shared=false}))
 end
 
 return {
