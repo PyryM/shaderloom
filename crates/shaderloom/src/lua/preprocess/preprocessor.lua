@@ -72,12 +72,20 @@ function Preprocessor:annotate_visibility(...)
     self:annotate(_annotate_visibility, set(args))
 end
 
+local bind_helper_mt = {}
+bind_helper_mt.__index = bind_helper_mt
+function bind_helper_mt:__tostring() return tostring(self.id) end
+function bind_helper_mt:binding(bind)
+    self.ctx:emit_raw(("@group(%d) @binding(%d)"):format(self.id, bind))
+end
+
 function Preprocessor:annotate_bindgroup(args)
     assert(type(args) == "table", "bindgroup{} expects a table argument!")
     local id = assert(args.id or args[1], "missing .id in bindgroup{...}!")
     local name = args.name or ("bindgroup_" .. id)
     local shared = not not args.shared
     self:_pre_annotate("bindgroups", name, {id=id, name=name, shared=shared})
+    return setmetatable({id=id, ctx=self}, bind_helper_mt)
 end
 
 function Preprocessor:include(name)
@@ -149,6 +157,22 @@ function tests.identity_translation()
     }
     local translated = test_proc(files)
     assert(eq(files.MAIN, translated))
+end
+
+function tests.only_preprocessor()
+    local dedent = require("utils.stringmanip").dedent
+    local eq = require("utils.deepeq").streq
+    local files = {
+        MAIN=dedent[[
+        # 
+        # 
+        # emit_raw "asdf"
+        # thing = 12
+        # ]]
+    }
+    local expected = "asdf"
+    local translated = test_proc(files)
+    assert(eq(expected, translated))
 end
 
 function tests.inline_translation()
@@ -236,13 +260,16 @@ function tests.bindgroup_annotation()
     local files = {
         MAIN=dedent[[
         # bindgroup{0, name="uniforms", shared=true}
-        # bindgroup{
+        # FOOBAR = bindgroup{
         #   id=2,
         #   name="foobar"
         # }
+        @group(${{FOOBAR}})
+        # FOOBAR:binding(3)
         ]],
     }
-    local _translated, annotations = test_proc(files)
+    local translated, annotations = test_proc(files)
+    assert(seq(translated, "@group(2)\n@group(2) @binding(3)"))
     assert(deq(annotations.bindgroups.uniforms, {id=0, name="uniforms", shared=true}))
     assert(deq(annotations.bindgroups.foobar, {id=2, name="foobar", shared=false}))
 end

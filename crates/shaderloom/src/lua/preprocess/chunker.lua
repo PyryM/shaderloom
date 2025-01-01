@@ -44,6 +44,9 @@ end
 ---@return string
 function chunker.translate_source(src)
     local cursor = 1
+    -- because we're operating on a line-by-line basis we
+    -- need the source to end in a newline.
+    if src:sub(#src, #src) ~= "\n" then src = src .. "\n" end
     local src_len = #src
 
     local frags = {}
