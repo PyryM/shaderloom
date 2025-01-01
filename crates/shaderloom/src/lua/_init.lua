@@ -49,13 +49,47 @@ else
     end
 end
 
+local function bundle_to_source(location)
+    local prev = 0
+    for _, loc in ipairs(_SOURCE_LOCATIONS) do
+        local linepos, name = loc[1], loc[2]
+        if linepos > location then
+            return name .. ":" .. (location - prev - 1)
+        end
+        prev = linepos
+    end
+    return "BUNDLE?:" .. location
+end
+
+local function remap_trace(trace)
+    -- remap bundle locations like <BUNDLE>:508
+    return trace:gsub("<BUNDLE>:(%d*)", function(m)
+        return bundle_to_source(tonumber(m))
+    end)
+end
+
+local function wrapped_call(f, ...)
+    local happy, err = xpcall(f, debug.traceback, ...)
+    if happy then
+        return true, err
+    else
+        return false, remap_trace(err)
+    end
+end
+
+local function assert_wrapped(f, ...)
+    local happy, err_or_result = wrapped_call(f, ...)
+    if not happy then error(err_or_result) end
+    return err_or_result
+end
+
 -- main entry point from rust side
 function _run_module(name)
     local module = assert(require(name), "No module named " .. name)
     if type(module) == "function" then
-        return module()
+        return assert_wrapped(module)
     elseif module.main then
-        return module:main()
+        return assert_wrapped(module.main, module)
     else
         print("Note: module", name, "doesn't have a .main!")
     end
@@ -79,7 +113,7 @@ function _run_tests(module_name)
     table.sort(test_names)
     local had_errors = 0
     for _, name in ipairs(test_names) do
-        local happy, err = pcall(tests[name])
+        local happy, err = wrapped_call(tests[name])
         if not happy then
             print(("FAIL %s: %s"):format(name, err):red())
             had_errors = had_errors + 1

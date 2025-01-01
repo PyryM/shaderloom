@@ -19,3 +19,6 @@ null = {}
 
 ---@type { [string]: function }
 _EMBED = {}
+
+---@type any[]
+_SOURCE_LOCATIONS = {}

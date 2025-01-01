@@ -27,8 +27,8 @@ use std::path::Path;
 fn wrap_lua_file<P: AsRef<Path>>(name: &str, src: &P) -> String {
     let data = fs::read_to_string(src).expect(name);
     format!(
-        "_SOURCE_START('{}') _EMBED['{}'] = function()\n{}\nend",
-        name, name, data
+        "_EMBED['{}'] = function()\n{}\nend\n_SOURCE_LOCATION('{}') ",
+        name, data, name
     )
 }
 
@@ -66,9 +66,9 @@ fn main() {
     let dest_path = Path::new(&out_dir).join("embedded_lua_bundle.lua");
 
     let preamble = "
-    local _LINES = {}
-    local function _SOURCE_START(name)
-        table.insert(_LINES, {debug.getinfo(2, 'l').currentline, name})
+    local _SOURCE_LOCATIONS = {}
+    local function _SOURCE_LOCATION(name)
+        table.insert(_SOURCE_LOCATIONS, {debug.getinfo(2, 'l').currentline, name})
     end
     local _EMBED = {}
     ";
