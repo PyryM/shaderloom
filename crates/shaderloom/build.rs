@@ -39,7 +39,7 @@ fn wrap_entry<P: AsRef<Path>>(root_dir: &P, entry: walkdir::DirEntry) -> String 
         .expect("Path is somehow not relative to root!")
         .to_str()
         .expect("Path is not a valid utf8 string!")
-        .replace("\\", "/"); // handle windows paty separators
+        .replace("\\", "/"); // handle windows path separators
     wrap_lua_file(&name, &entry.path())
 }
 
