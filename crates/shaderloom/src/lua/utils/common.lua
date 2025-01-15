@@ -72,14 +72,19 @@ end
 
 function tests.curry2()
     local curried = utils.curry(3, function(a, b, c)
-        return a .. b.name .. c:strip()
+        local ret = a .. b.name .. c:strip()
+        return {
+            with = function(_self, eh)
+                return eh .. ret
+            end
+        }
     end)
     local res = curried "some_func" {name='foo'} [[
         wow!
-    ]]
+    ]]:with("asdf")
 
     local streq = require("utils.deepeq").string_equal
-    assert(streq(res, "some_funcfoowow!"))
+    assert(streq(res, "asdfsome_funcfoowow!"))
 end
 
 return utils
