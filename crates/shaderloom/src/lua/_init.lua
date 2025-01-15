@@ -121,3 +121,19 @@ function _run_tests(module_name)
     end
     if had_errors > 0 then error("Tests failed: " .. had_errors) end
 end
+
+CONFIG = {}
+
+function _update_config(vals)
+    require("utils.common").merge_into(CONFIG, vals)
+end
+
+-- disable global modification
+setmetatable(_G, {
+    __index = function(t, k)
+        error("Tried to access nil global " .. k)
+    end,
+    __newindex = function(t, k, v)
+        error("Tried to assign to global " .. k)
+    end
+})

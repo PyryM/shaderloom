@@ -1,7 +1,7 @@
 use crate::globutils::glob_items;
 use crate::naga_parse::parse_wgsl;
 use anyhow::Result;
-use mlua::{Function, Lua, LuaSerdeExt, UserData};
+use mlua::{Function, Lua, LuaSerdeExt, Table, UserData};
 
 static LUA_EMBEDS: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"));
 
@@ -59,20 +59,27 @@ impl LuaExecutor {
         Ok(())
     }
 
+    pub fn update_config(&self, config: Table) -> Result<()> {
+        let update_config: Function = self.lua.globals().get("_update_config")?;
+        update_config.call::<()>(config)?;
+        Ok(())
+    }
+
     pub fn run_script(&self, infile: &str) -> Result<()> {
-        let globals = self.lua.globals();
+        let args = self.lua.create_table()?;
 
         if let Some(p) = std::path::Path::new(infile).parent() {
-            globals.set("SCRIPTDIR", p.to_string_lossy())?;
+            args.set("SCRIPTDIR", p.to_string_lossy())?;
         }
-        globals.set("SCRIPTPATH", infile)?;
+        args.set("SCRIPTPATH", infile)?;
 
         if let Ok(p) = std::path::absolute(infile) {
             if let Some(p) = p.parent() {
-                globals.set("ABSSCRIPTDIR", p.to_string_lossy())?;
+                args.set("ABSSCRIPTDIR", p.to_string_lossy())?;
             }
-            globals.set("ABSSCRIPTPATH", p.to_string_lossy())?;
+            args.set("ABSSCRIPTPATH", p.to_string_lossy())?;
         };
+        self.update_config(args)?;
 
         self.run_module("cli.exec_script")
     }

@@ -100,7 +100,8 @@ local function main()
     local parsed = naga.parse(src)
     deep_print(parsed.types)
 
-    error("eh")
+    -- foo = 12 -- try to set a global
+    -- error("eh")
 end
 
 return main
