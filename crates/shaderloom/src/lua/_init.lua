@@ -49,6 +49,9 @@ else
     end
 end
 
+-- luajit vs 5.4 again
+unpack = unpack or table.unpack 
+
 local function bundle_to_source(location)
     local prev = 0
     for _, loc in ipairs(_SOURCE_LOCATIONS) do
@@ -127,6 +130,9 @@ CONFIG = {}
 function _update_config(vals)
     require("utils.common").merge_into(CONFIG, vals)
 end
+
+-- install string utilities onto strings
+require("utils.stringmanip").install()
 
 -- disable global modification
 setmetatable(_G, {

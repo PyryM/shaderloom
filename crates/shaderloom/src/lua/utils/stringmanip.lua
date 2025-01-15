@@ -30,6 +30,13 @@ function stringmanip.strip(str)
   return str:match'^%s*(.*%S)' or ''
 end
 
+-- substitutes template values like ${foo} with values from subs
+function stringmanip.with(str, subs)
+    return str:gsub("%${([^}]*)}", function(name)
+        return assert(subs[name], "Missing template param '" .. name .. "'")
+    end)
+end
+
 local function common_indent(lines)
     local indent = math.huge
     for _, line in ipairs(lines) do
@@ -48,6 +55,15 @@ function stringmanip.dedent(block)
         lines[idx] = lines[idx]:sub(indent+1)
     end
     return table.concat(lines, "\n")
+end
+
+function stringmanip.install()
+    -- 'install' all these functions onto the string table
+    -- so they'll be available as method calls on strings
+    string.dedent = stringmanip.dedent
+    string.strip = stringmanip.strip
+    string.with = stringmanip.with
+    string.split = stringmanip.split
 end
 
 local tests = {}
@@ -91,8 +107,15 @@ function tests.dedent()
         "    Blorbo",
         "Boingo"
     }, "\n")
-    local eq = require("utils.deepeq").streq
+    local eq = require("utils.deepeq").string_equal
     assert(eq(expected, stringmanip.dedent(block)))
+end
+
+function tests.with()
+    local s = [[hello ${name}! I am also ${name}. ${greeting}]]
+    local expected = [[hello foo-asdf! I am also foo-asdf. bonjour!!!!]]
+    local eq = require("utils.deepeq").string_equal
+    assert(eq(expected, stringmanip.with(s, {name="foo-asdf", greeting="bonjour!!!!"})))
 end
 
 return stringmanip

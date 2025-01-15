@@ -20,8 +20,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lua_utils() {
+    fn lua_string_utils() {
         LuaExecutor::new().run_tests("utils.stringmanip").unwrap();
+    }
+
+    #[test]
+    fn lua_common_utils() {
+        LuaExecutor::new().run_tests("utils.common").unwrap();
     }
 
     #[test]

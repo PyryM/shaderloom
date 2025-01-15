@@ -146,7 +146,7 @@ end
 
 function tests.identity_translation()
     local dedent = require("utils.stringmanip").dedent
-    local eq = require("utils.deepeq").streq
+    local eq = require("utils.deepeq").string_equal
     local files = {
         MAIN=dedent[[
         @compute @workgroup_size(1)
@@ -161,7 +161,7 @@ end
 
 function tests.only_preprocessor()
     local dedent = require("utils.stringmanip").dedent
-    local eq = require("utils.deepeq").streq
+    local eq = require("utils.deepeq").string_equal
     local files = {
         MAIN=dedent[[
         # 
@@ -177,7 +177,7 @@ end
 
 function tests.inline_translation()
     local dedent = require("utils.stringmanip").dedent
-    local eq = require("utils.deepeq").streq
+    local eq = require("utils.deepeq").string_equal
     local files = {
         MAIN=dedent[[
         # function one() 
@@ -202,7 +202,7 @@ end
 
 function tests.includes()
     local dedent = require("utils.stringmanip").dedent
-    local eq = require("utils.deepeq").streq
+    local eq = require("utils.deepeq").string_equal
     local files = {
         MAIN=dedent[[
         #include "other"
@@ -224,7 +224,7 @@ end
 
 function tests.visibility_annotation()
     local deq = require("utils.deepeq").dict_exact_equal
-    local seq = require("utils.deepeq").streq
+    local seq = require("utils.deepeq").string_equal
     assert(seq(
         ("var < workgroup > foo : u32"):match(VISIBILITY_PATT_TEMPLATE, 1),
         "foo"
@@ -254,7 +254,7 @@ end
 
 function tests.bindgroup_annotation()
     local deq = require("utils.deepeq").dict_exact_equal
-    local seq = require("utils.deepeq").streq
+    local seq = require("utils.deepeq").string_equal
 
     local dedent = require("utils.stringmanip").dedent
     local files = {

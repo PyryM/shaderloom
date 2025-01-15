@@ -4,7 +4,7 @@ function deepeq.debug_string_format(s)
     return s:gsub(" ", "."):gsub("\n", "\\n")
 end
 
-function deepeq.streq(a, b)
+function deepeq.string_equal(a, b)
     if a == b then return true end
     if type(a) ~= "string" or type(b) ~= "string" then
         return false, "not strings"
