@@ -1,4 +1,5 @@
 local deep_print = require "utils.deepprint"
+local default_table = require("utils.common").default_table
 
 local naga = {}
 
@@ -262,7 +263,7 @@ end
 
 
 
-local function fix_and_register_var(registry, vars, item)
+local function fix_and_register_var(registry, vars, bindgroups, item)
     local space, access = nil, nil
     if type(item.space) == "string" then
         space = item.space:lower()
@@ -272,16 +273,24 @@ local function fix_and_register_var(registry, vars, item)
     end
     local ty = assert(registry[item.ty])
     local binding = fixnull(item.binding)
-    vars[item.name] = {
+    local var = {
         name = item.name,
         ty = ty,
         space = space,
         access = access,
         binding = binding,
     }
+    vars[item.name] = var
+    if binding then
+        bindgroups[binding.group].bindings[binding.binding] = var
+    end
 end
 
-local function fixup(data)
+local function fixup(data, annotations)
+    annotations = annotations or {}
+    local visibility_annotations = annotations.visibility or {}
+    local bindgroup_annotations = annotations.bindgroups or {}
+
     data = data.module
     -- fix types first off
     local registry = {}
@@ -289,19 +298,21 @@ local function fixup(data)
         fix_and_register_type(registry, idx-1, t)
     end
     local vars = {}
+    local bindgroups = default_table(function() return {bindings={}} end)
     for _, var in ipairs(data.global_variables) do
-        fix_and_register_var(registry, vars, var)
+        fix_and_register_var(registry, vars, bindgroups, var)
     end
-    deep_print(data)
+    setmetatable(bindgroups, nil)
     return {
         raw=data,
         types=registry,
         vars=vars,
+        bindgroups=bindgroups,
     }
 end
 
-function naga.parse(source)
-    return fixup(loom:parse_wgsl(source))
+function naga.parse(source, annotations)
+    return fixup(loom:parse_wgsl(source), annotations)
 end
 
 local tests = {}
@@ -328,6 +339,36 @@ function tests:parse_primitives()
     assert(vars.v_i32.ty == SCALARS.i32, "parsed var v_i32")
     assert(vars.v_f32.ty == SCALARS.f32, "parsed var v_f32")
     assert(vars.v_bool.ty == SCALARS.bool, "parsed var v_bool")
+end
+
+function tests:parse_bindgroups()
+    local src = [[
+    struct PrimeIndices {
+        erm: array<u32, 100>,
+        data: array<u32>
+    } // this is used as both input and output for convenience
+
+    @group(0) @binding(0)
+    var<storage,read_write> v_indices: PrimeIndices;
+
+    @group(0) @binding(1)
+    var tex_whatever: texture_multisampled_2d<f32>;
+
+    @group(1) @binding(0)
+    var samp_a: sampler;
+
+    @group(1) @binding(1)
+    var samp_b: sampler_comparison;
+
+    @compute @workgroup_size(1) fn main() {}
+    ]]
+
+    local parsed = naga.parse(src)
+    local types, vars, bindgroups = parsed.types, parsed.vars, parsed.bindgroups
+    assert(bindgroups[0].bindings[0].name == "v_indices")
+    assert(bindgroups[0].bindings[0].ty == types.PrimeIndices)
+    assert(bindgroups[1].bindings[1].name == "samp_b")
+    assert(bindgroups[1].bindings[1].ty == types.sampler_comparison)
 end
 
 return naga

@@ -42,6 +42,7 @@ impl LuaExecutor {
 
         globals.set("null", lua.null()).unwrap();
         globals.set("loom", LuaLoomInterface::new()).unwrap();
+        globals.set("__raw_embed", LUA_EMBEDS).unwrap();
 
         lua.load(LUA_EMBEDS).set_name("=<BUNDLE>").exec().unwrap();
         Self { lua }

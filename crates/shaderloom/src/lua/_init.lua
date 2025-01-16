@@ -66,6 +66,7 @@ end
 
 local function remap_trace(trace)
     -- remap bundle locations like <BUNDLE>:508
+    if type(trace) ~= 'string' then trace = tostring(trace) end
     return trace:gsub("<BUNDLE>:(%d*)", function(m)
         return bundle_to_source(tonumber(m))
     end)

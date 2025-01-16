@@ -98,10 +98,10 @@ local function main()
 
     local naga = require "analysis.naga"
     local parsed = naga.parse(src)
-    deep_print(parsed.types)
+    --deep_print(parsed.types)
 
     -- foo = 12 -- try to set a global
-    -- error("eh")
+    --error("eh")
 end
 
 return main

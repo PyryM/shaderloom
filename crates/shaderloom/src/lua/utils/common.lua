@@ -46,8 +46,48 @@ function utils.curry(argcount, func)
     return _curry(argcount, func, {})
 end
 
+function utils.constant(v)
+    if type(v) == 'table' then 
+        return function() return utils.merge({}, v) end
+    else
+        return function() return v end
+    end
+end
+
+function utils.is_callable(v)
+    local vt = type(v)
+    if vt == 'table' then
+        local mt = getmetatable(v)
+        return mt and mt.__call ~= nil
+    else
+        -- assume any userdata is callable?
+        return vt == 'function' or vt == 'userdata'
+    end
+end
+
+function utils.default_table(default)
+    if not utils.is_callable(default) then
+        default = utils.constant(default)
+    end
+    return setmetatable({}, {
+        __index = function(t, k)
+            local v = default(k)
+            t[k] = v
+            return v
+        end
+    })
+end
+
 local tests = {}
 utils._tests = tests
+
+function tests.default_table()
+    local t = utils.default_table({})
+    t.asdf[10] = 100
+    assert(t.asdf[10])
+    assert(t.foobar)
+    assert(t.foobar ~= t.barfoo)
+end
 
 function tests.concat()
     local leq = require("utils.deepeq").list_equal

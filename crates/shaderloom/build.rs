@@ -66,12 +66,12 @@ fn main() {
     let dest_path = Path::new(&out_dir).join("embedded_lua_bundle.lua");
 
     let preamble = "
-    local _SOURCE_LOCATIONS = {}
-    local function _SOURCE_LOCATION(name)
-        table.insert(_SOURCE_LOCATIONS, {debug.getinfo(2, 'l').currentline, name})
-    end
-    local _EMBED = {}
-    ";
+local _SOURCE_LOCATIONS = {}
+local function _SOURCE_LOCATION(name)
+    table.insert(_SOURCE_LOCATIONS, {debug.getinfo(2, 'l').currentline, name})
+end
+local _EMBED = {}
+_SOURCE_LOCATION('__preamble__')";
     let embeds = wrap_lua_source_files(&"src/lua".to_string());
     let source = format!("{}\n{}\n_EMBED['_init.lua']()", preamble, embeds);
 
