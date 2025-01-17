@@ -286,6 +286,15 @@ local function fix_and_register_var(registry, vars, bindgroups, item)
     end
 end
 
+local function fix_entry_point(target, entry)
+    local stage = entry.stage:lower()
+    table.insert(target[stage], {
+        name = entry.name,
+        stage = stage,
+        workgroup_size = entry.workgroup_size
+    })
+end
+
 local function fixup(data, annotations)
     annotations = annotations or {}
     local visibility_annotations = annotations.visibility or {}
@@ -303,11 +312,17 @@ local function fixup(data, annotations)
         fix_and_register_var(registry, vars, bindgroups, var)
     end
     setmetatable(bindgroups, nil)
+    local entry_points = default_table({})
+    for _, entry in ipairs(data.entry_points) do
+        fix_entry_point(entry_points, entry)
+    end
+    setmetatable(entry_points, nil)
     return {
         raw=data,
         types=registry,
         vars=vars,
         bindgroups=bindgroups,
+        entry_points=entry_points,
     }
 end
 
@@ -317,6 +332,51 @@ end
 
 local tests = {}
 naga._tests = tests
+
+function tests:parse_entrypoints()
+    local deepeq = require("utils.deepeq")
+    local streq = deepeq.string_equal
+    local leq = deepeq.list_equal
+
+    local src_render = [[
+    struct FragtestUniforms {
+        @align(16) color0: vec4f,
+        @align(16) color1: vec4f,
+        @align(16) center: vec2f,
+        @align(16) scale: f32,
+    }
+
+    @group(0) @binding(0) var<uniform> uniforms: FragtestUniforms;
+
+    var<private> pos: array<vec2f, 3> = array<vec2f, 3>(
+        vec2f(-1.0, -1.0), 
+        vec2f(-1.0, 3.0), 
+        vec2f(3.0, -1.0)
+    );
+
+    @vertex
+    fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec4f {
+        return vec4f(pos[vertexIndex], 1.0, 1.0);
+    }
+
+    @fragment
+    fn fragmentMain(@builtin(position) fragpos: vec4f) -> @location(0) vec4f {
+        let rad = length(fragpos.xy - uniforms.center);
+        let alpha = cos(rad * uniforms.scale) * 0.5 + 0.5;
+        return mix(uniforms.color0, uniforms.color1, alpha);
+    }
+    ]]
+    local entry_points = naga.parse(src_render).entry_points
+    assert(streq(entry_points.vertex[1].name, "vertexMain"))
+    assert(streq(entry_points.fragment[1].name, "fragmentMain"))
+
+    local src_compute = [[
+    @compute @workgroup_size(1, 16) fn compute_main() {}
+    ]]
+    local entry_points = naga.parse(src_compute).entry_points
+    assert(streq(entry_points.compute[1].name, "compute_main"))
+    assert(leq(entry_points.compute[1].workgroup_size, {1, 16, 1}))
+end
 
 function tests:parse_primitives()
     local src = [[
