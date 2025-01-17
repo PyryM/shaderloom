@@ -10,7 +10,7 @@ bstr = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-naga = {version="23.0.0", features=["serialize", "wgsl-in"]}
+naga = {version="24.0.0", features=["serialize", "wgsl-in"]}
 glob = "0.3.1"
 clap = {version = "4.5.22", features = ["derive"] }
 

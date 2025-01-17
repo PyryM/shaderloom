@@ -62,6 +62,7 @@ impl LuaExecutor {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn run_tests(&self, module_name: &str) -> Result<()> {
         let run_tests: Function = self.lua.globals().get("_run_tests")?;
         run_tests.call::<()>(module_name)?;
