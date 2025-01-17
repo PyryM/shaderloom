@@ -201,67 +201,6 @@ local function fix_and_register_type(registry, idx, t)
     registry[fixed.name] = fixed
     return fixed
 end
---     global_variables = {
---          1 = {
---              space = {
---                  Storage = {
---                      access = [string] "LOAD | STORE",
---                  },
---              },
---              ty = [number] 10,
---              name = [string] "v_indices",
---              init = [null],
---              binding = {
---                  binding = [number] 0,
---                  group = [number] 0,
---              },
---          },
---          2 = {
---              space = [string] "Handle",
---              ty = [number] 11,
---              name = [string] "tex_whatever",
---              init = [null],
---              binding = {
---                  binding = [number] 1,
---                  group = [number] 0,
---              },
---          },
---          3 = {
---              space = [string] "Handle",
---              ty = [number] 12,
---              name = [string] "samp_a",
---              init = [null],
---              binding = {
---                  binding = [number] 2,
---                  group = [number] 0,
---              },
---          },
---          4 = {
---              space = [string] "Handle",
---              ty = [number] 13,
---              name = [string] "samp_b",
---              init = [null],
---              binding = {
---                  binding = [number] 3,
---                  group = [number] 0,
---              },
---          },
---          5 = {
---              space = {
---                  Storage = {
---                      access = [string] "LOAD | STORE",
---                  },
---              },
---              ty = [number] 15,
---              name = [string] "atomic_array",
---              init = [null],
---              binding = {
---                  binding = [number] 4,
---                  group = [number] 0,
---              },
---          },
-
-
 
 local function fix_and_register_var(registry, vars, bindgroups, item)
     local space, access = nil, nil
