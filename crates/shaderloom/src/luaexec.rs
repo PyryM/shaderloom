@@ -1,5 +1,5 @@
 use crate::globutils::glob_items;
-use crate::naga_parse::parse_wgsl;
+use crate::naga_parse::{parse_and_validate_wgsl, parse_wgsl, LuaWGSLModule};
 use anyhow::Result;
 use mlua::{Function, Lua, LuaSerdeExt, Table, UserData};
 
@@ -22,6 +22,14 @@ impl UserData for LuaLoomInterface {
         methods.add_method("parse_wgsl", |_, _this: &Self, src: String| {
             Ok(parse_wgsl(&src)?)
         });
+
+        methods.add_method(
+            "parse_and_validate_wgsl",
+            |_, _this: &Self, (src, flags): (String, Option<u8>)| {
+                let (module, info) = parse_and_validate_wgsl(&src, flags)?;
+                Ok((LuaWGSLModule { module }, info))
+            },
+        );
 
         methods.add_method("print", |_, _this: &Self, msg: String| {
             println!("{}", msg);

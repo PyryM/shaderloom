@@ -265,12 +265,41 @@ local function fixup(data, annotations)
     }
 end
 
-function naga.parse(source, annotations)
-    return fixup(loom:parse_wgsl(source), annotations)
+function naga.parse(source, annotations, validate)
+    local parsed, validation_errors
+    if validate then
+        parsed, validation_errors = loom:parse_and_validate_wgsl(source)
+    else
+        parsed = loom:parse_wgsl(source)
+    end
+    return fixup(parsed, annotations), validation_errors
 end
 
 local tests = {}
 naga._tests = tests
+
+function tests:validation()
+    local src = [[
+    var<private> pos: array<vec2f, 3> = array<vec2f, 3>(
+        vec2f(-1.0, -1.0), 
+        vec2f(-1.0, 3.0), 
+        vec2f(3.0, -1.0)
+    );
+
+    @vertex
+    fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec4f {
+        return pos[vertexIndex];
+    }
+
+    @fragment
+    fn fragmentMain(@builtin(position) fragpos: vec4f) -> @location(0) vec4f {
+        return vec2f(0.0, 0.0);
+    }
+    ]]
+    local parsed, errs = naga.parse(src, nil, true)
+    print(errs)
+    assert(errs ~= nil)
+end
 
 function tests:parse_entrypoints()
     local deepeq = require("utils.deepeq")

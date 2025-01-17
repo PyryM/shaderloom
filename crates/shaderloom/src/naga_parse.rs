@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use mlua::LuaSerdeExt;
 use serde::Serialize;
 
 use naga::front::wgsl;
-use naga::valid::{Capabilities as Caps, ModuleInfo};
+use naga::valid::Capabilities as Caps;
 use naga::valid::{ValidationFlags, Validator};
 use naga::Module;
 
@@ -25,20 +25,18 @@ pub fn parse_wgsl(src: &str) -> Result<LuaWGSLModule> {
     Ok(LuaWGSLModule { module })
 }
 
-pub fn parse_wgsl_to_json(src: &str) -> Result<String> {
-    let module = wgsl::parse_str(src)?;
-    let json = serde_json::to_string(&module)?;
-    Ok(json)
-}
-
-pub fn validate_wgsl(src: &str, validation_flags: u8) -> Result<(Module, ModuleInfo)> {
+pub fn parse_and_validate_wgsl(src: &str, flags: Option<u8>) -> Result<(Module, Option<String>)> {
     let module = wgsl::parse_str(src)?;
     // According to the Naga CLI, these capabilities are missing from wgsl
     let caps = Caps::all() & !(Caps::CLIP_DISTANCE | Caps::CULL_DISTANCE);
-    let flags = ValidationFlags::from_bits(ValidationFlags::all().bits() & validation_flags)
-        .unwrap_or(ValidationFlags::all());
+    let flags = match flags {
+        Some(bitflags) => ValidationFlags::from_bits_truncate(bitflags),
+        None => ValidationFlags::all(),
+    };
+    let err_info = match Validator::new(flags, caps).validate(&module) {
+        Ok(_) => None,
+        Err(e) => Some(e.emit_to_string(src)),
+    };
 
-    let info = Validator::new(flags, caps).validate(&module)?;
-
-    Ok((module, info))
+    Ok((module, err_info))
 }
