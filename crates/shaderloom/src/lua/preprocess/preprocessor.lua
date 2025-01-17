@@ -88,6 +88,10 @@ function Preprocessor:annotate_bindgroup(args)
     return setmetatable({id=id, ctx=self}, bind_helper_mt)
 end
 
+function Preprocessor:annotate_name(name)
+    self:_pre_annotate("name", nil, name)
+end
+
 function Preprocessor:include(name)
     self:process_source(self.resolver(name), name)
 end
@@ -109,6 +113,7 @@ function Preprocessor:clear()
         include = self:_bind("include"),
         visibility = self:_bind("annotate_visibility"),
         bindgroup = self:_bind("annotate_bindgroup"),
+        name = self:_bind("annotate_name"),
     }
     setmetatable(self.env, {
         __index = _G
@@ -128,6 +133,8 @@ function Preprocessor:get_output()
         local category, name, annotation = annotator:eval(output)
         if category and name then
             annotations[category][name] = annotation
+        elseif category then
+            annotations[category] = annotation
         end
     end
     return output, annotations
@@ -272,6 +279,20 @@ function tests.bindgroup_annotation()
     assert(seq(translated, "@group(2)\n@group(2) @binding(3)"))
     assert(deq(annotations.bindgroups.uniforms, {id=0, name="uniforms", shared=true}))
     assert(deq(annotations.bindgroups.foobar, {id=2, name="foobar", shared=false}))
+end
+
+function tests.name_annotation()
+    local seq = require("utils.deepeq").string_equal
+
+    local dedent = require("utils.stringmanip").dedent
+    local files = {
+        MAIN=dedent[[
+        # name "some_shader"
+        fn main() {}
+        ]],
+    }
+    local translated, annotations = test_proc(files)
+    assert(seq(annotations.name, "some_shader"))
 end
 
 return {
