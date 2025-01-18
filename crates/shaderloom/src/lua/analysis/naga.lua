@@ -265,7 +265,13 @@ local function fixup(data, annotations)
     }
 end
 
-function naga.parse(source, annotations, validate)
+function naga.parse(shader, validate)
+    local source, annotations
+    if type(shader) == 'table' then
+        source, annotations = shader.source, shader.annotations
+    else
+        source = shader
+    end
     local parsed, validation_errors
     if validate then
         parsed, validation_errors = loom:parse_and_validate_wgsl(source)
@@ -296,7 +302,7 @@ function tests:validation()
         return vec2f(0.0, 0.0);
     }
     ]]
-    local parsed, errs = naga.parse(src, nil, true)
+    local parsed, errs = naga.parse(src, true)
     print(errs)
     assert(errs ~= nil)
 end

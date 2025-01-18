@@ -10,6 +10,7 @@ local utils = require "utils.common"
 local fileio = require "utils.fileio"
 local Preprocessor = require("preprocess.preprocessor").Preprocessor
 local raw_target = {}
+local naga = require "analysis.naga"
 
 function raw_target.preprocess(shaders, include_dirs)
     local resolver = fileio.create_resolver(include_dirs)
@@ -20,15 +21,30 @@ function raw_target.preprocess(shaders, include_dirs)
             fileio.read(file_info.path),
             file_info.file_name or file_info.path
         )
-        local out_source, annotations = pp:get_output()
-        processed[idx] = {
-            source = out_source,
-            annotations = annotations,
-            file_info = file_info,
-            name = annotations.name or file_info.file_name or file_info.path or ("shader_" .. idx)
-        }
+        local proc = pp:get_output()
+        processed[idx] = utils.merge_into({
+            name = proc.annotations.name or file_info.file_name or file_info.path or ("shader_" .. idx),
+        }, file_info, proc)
     end
     return processed
+end
+
+function raw_target.validate(shaders)
+    local had_errors = false
+    for _, shader in ipairs(shaders) do
+        local parsed, errs = naga.parse(shader, true)
+        if errs then
+            log.error(("Error in '${name}' (@'${path}'):??"):with(shader))
+            log.multiline(errs)
+            log.divider()
+            had_errors = true
+        end
+    end
+    if had_errors then
+        error("Errors in shaders.") 
+    else
+        log.info("All shaders passed validation.")
+    end
 end
 
 function raw_target.create_bundle(options, shaders, env)
@@ -53,6 +69,9 @@ end
 function raw_target.build(options)
     local shaders = raw_target.preprocess(options.shaders, options.include_dirs)
     local config = options.config
+    if config.validate then
+        raw_target.validate(shaders)
+    end
     local env = options.env
     if config.bundle then
         local bundle = raw_target.create_bundle(config.bundle, shaders, options.env)

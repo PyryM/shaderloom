@@ -137,7 +137,7 @@ function Preprocessor:get_output()
             annotations[category] = annotation
         end
     end
-    return output, annotations
+    return {source=output, annotations=annotations}
 end
 
 local tests = {}
@@ -162,7 +162,7 @@ function tests.identity_translation()
         }
         ]]
     }
-    local translated = test_proc(files)
+    local translated = test_proc(files).source
     assert(eq(files.MAIN, translated))
 end
 
@@ -178,7 +178,7 @@ function tests.only_preprocessor()
         # ]]
     }
     local expected = "asdf"
-    local translated = test_proc(files)
+    local translated = test_proc(files).source
     assert(eq(expected, translated))
 end
 
@@ -203,7 +203,7 @@ function tests.inline_translation()
         v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
     }
     ]]
-    local translated = test_proc(files)
+    local translated = test_proc(files).source
     assert(eq(expected, translated))
 end
 
@@ -225,7 +225,7 @@ function tests.includes()
     fn eh() {
     }
     ]]
-    local translated = test_proc(files)
+    local translated = test_proc(files).source
     assert(eq(expected, translated))
 end
 
@@ -253,7 +253,7 @@ function tests.visibility_annotation()
         var<storage, read_write > v_ehhhh_32 : array<f32>;
         ]],
     }
-    local _translated, annotations = test_proc(files)
+    local annotations = test_proc(files).annotations
     assert(deq(annotations.visibility.foo, {fragment=true}))
     assert(deq(annotations.visibility.tex_whatever, {fragment=true, vertex=true}))
     assert(deq(annotations.visibility.v_ehhhh_32, {vertex=true}))
@@ -275,7 +275,8 @@ function tests.bindgroup_annotation()
         # FOOBAR:binding(3)
         ]],
     }
-    local translated, annotations = test_proc(files)
+    local proc = test_proc(files)
+    local translated, annotations = proc.source, proc.annotations
     assert(seq(translated, "@group(2)\n@group(2) @binding(3)"))
     assert(deq(annotations.bindgroups.uniforms, {id=0, name="uniforms", shared=true}))
     assert(deq(annotations.bindgroups.foobar, {id=2, name="foobar", shared=false}))
@@ -291,7 +292,7 @@ function tests.name_annotation()
         fn main() {}
         ]],
     }
-    local translated, annotations = test_proc(files)
+    local annotations = test_proc(files).annotations
     assert(seq(annotations.name, "some_shader"))
 end
 

@@ -32,14 +32,14 @@ end
 
 -- substitutes template values like ${foo} with values from subs
 function stringmanip.with(str, subs)
-    return str:gsub("%${([^}]*)}", function(name)
+    return (str:gsub("%${([^}]*)}", function(name)
         local sub = assert(subs[name], "Missing template param '" .. name .. "'")
         if type(sub) == 'function' then
             return sub()
         else
             return tostring(sub)
         end
-    end)
+    end))
 end
 
 function stringmanip.common_indent(lines)

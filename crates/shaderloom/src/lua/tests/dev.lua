@@ -88,7 +88,7 @@ local function main()
     local processor = preprocess.Preprocessor(resolver)
 
     processor:include("test_main.wgsl")
-    local res = processor:get_output()
+    local res = processor:get_output().source
     print("------")
     print(res)
 
