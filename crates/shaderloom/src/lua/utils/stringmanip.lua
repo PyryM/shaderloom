@@ -33,11 +33,16 @@ end
 -- substitutes template values like ${foo} with values from subs
 function stringmanip.with(str, subs)
     return str:gsub("%${([^}]*)}", function(name)
-        return assert(subs[name], "Missing template param '" .. name .. "'")
+        local sub = assert(subs[name], "Missing template param '" .. name .. "'")
+        if type(sub) == 'function' then
+            return sub()
+        else
+            return tostring(sub)
+        end
     end)
 end
 
-local function common_indent(lines)
+function stringmanip.common_indent(lines)
     local indent = math.huge
     for _, line in ipairs(lines) do
         if not line:match("^%s*$") then
@@ -50,7 +55,7 @@ end
 
 function stringmanip.dedent(block)
     local lines = stringmanip.split(block)
-    local indent = common_indent(lines)
+    local indent = stringmanip.common_indent(lines)
     for idx = 1, #lines do
         lines[idx] = lines[idx]:sub(indent+1)
     end
@@ -64,6 +69,7 @@ function stringmanip.install()
     string.strip = stringmanip.strip
     string.with = stringmanip.with
     string.split = stringmanip.split
+    string.common_indent = stringmanip.common_indent
 end
 
 local tests = {}
@@ -112,10 +118,17 @@ function tests.dedent()
 end
 
 function tests.with()
-    local s = [[hello ${name}! I am also ${name}. ${greeting}]]
+    local s = [[hello ${name}! I am also ${name}. ${greeting}${foozle}]]
     local expected = [[hello foo-asdf! I am also foo-asdf. bonjour!!!!]]
+    local count = 0
+    local subs = {
+        name="foo-asdf", 
+        greeting="bonjour",
+        foozle=function() return ("!"):rep(count) end
+    }
+    count = 4
     local eq = require("utils.deepeq").string_equal
-    assert(eq(expected, stringmanip.with(s, {name="foo-asdf", greeting="bonjour!!!!"})))
+    assert(eq(expected, stringmanip.with(s, subs)))
 end
 
 return stringmanip

@@ -1,7 +1,7 @@
 local deepeq = {}
 
 function deepeq.debug_string_format(s)
-    return s:gsub(" ", "."):gsub("\n", "\\n")
+    return s:gsub("\n", "\\n")
 end
 
 function deepeq.string_equal(a, b)
