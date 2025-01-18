@@ -15,15 +15,11 @@ print = function(...)
     loom:print(table.concat({...}, " "))
 end
 
-for k, _v in pairs(_EMBED) do
-    print(("> '%s'"):format(k))
-end
-
 require = function(name)
     local fn = name:gsub("%.", "/") .. ".lua"
     if _LOADED[name] then return _LOADED[name] end
     if _EMBED[fn] then
-        print(("Loading '%s'"):format(name):blue())
+        --print(("Loading '%s'"):format(name):blue())
         _LOADED[name] = _EMBED[fn]()
         if _LOADED[name] == nil then _LOADED[name] = true end
         return _LOADED[name]

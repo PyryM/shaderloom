@@ -4,6 +4,7 @@
 
 local merge_into = require("utils.common").merge_into
 local curry = require("utils.common").curry
+local log = require "log"
 
 -- pub struct GlobItem {
 --     path: String,
@@ -31,7 +32,7 @@ local function use(env)
                 env.add_shaders(item)
             end
         elseif type(patt) == 'string' then
-            patt = patt:with(CONFIG)
+            patt = patt:with(env)
             for _, item in ipairs(loom:glob(patt)) do
                 if item.is_file then
                     table.insert(shaders, item)
@@ -50,11 +51,16 @@ local function use(env)
                 env.include_dirs(patt)
             end
         elseif type(patt) == 'string' then
-            patt = patt:with(CONFIG)
+            patt = patt:with(env)
+            local match_count = 0
             for _, item in ipairs(loom:glob(patt)) do
                 if item.is_dir then
                     table.insert(include_dirs, item.path)
+                    match_count = match_count + 1
                 end
+            end
+            if match_count == 0 then
+                log.warn(("include pattern '%s' matched no directories"):format(patt))
             end
         else
             error("Invalid include dir? " .. tostring(patt))
@@ -63,11 +69,12 @@ local function use(env)
 
     local function build()
         assert(target, "No target has been set!")
-        target = require("target." .. target)
+        target = require("targets." .. target)
         target.build{
             config = target_config,
             shaders = shaders,
-            include_dirs = include_dirs
+            include_dirs = include_dirs,
+            env = env
         }
     end
 

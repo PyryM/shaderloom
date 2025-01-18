@@ -2,11 +2,7 @@
 --
 -- main entry point for running a user-supplied build script
 
-local function make_proxy_env()
-    return setmetatable({}, {
-        __index = _G
-    })
-end
+local utils = require "utils.common"
 
 local function read_string(fn)
     local f = assert(io.open(fn))
@@ -22,7 +18,8 @@ local function main()
     )
     local script = read_string(path)
     local defers = {}
-    local env = make_proxy_env()
+    local env = utils.cascaded_table(CONFIG, _G)
+    env._G = env
     function env.defer(func) table.insert(defers, func) end
     function env.use(name) 
         local module = require(name)

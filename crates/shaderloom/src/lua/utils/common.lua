@@ -18,6 +18,9 @@ function utils.concat(left, right)
     return ret
 end
 
+-- merge any number of tables into a target table,
+-- modifying the target in place.
+-- for duplicated keys, last wins
 function utils.merge_into(target, ...)
     for arg_idx = 1, select('#', ...) do
         for k, v in pairs(select(arg_idx, ...)) do
@@ -27,6 +30,8 @@ function utils.merge_into(target, ...)
     return target
 end
 
+-- merge any number of tables into a new table
+-- for duplicated keys, last wins
 function utils.merge(...)
     return utils.merge_into({}, ...)
 end
@@ -42,10 +47,18 @@ local function _curry(argcount, func, args)
     end
 end
 
+-- turn a function of n args into a curried function
+-- e.g.
+-- function original(a, b, c) --... end
+-- res = original(1, 2, 3)
+-- curried = utils.curry(3, original)
+-- res = curried(1) (2) (3)
 function utils.curry(argcount, func)
     return _curry(argcount, func, {})
 end
 
+-- create a zero-argument function that returns a constant
+-- if the constant is a table, then each call returns a new shallow copy
 function utils.constant(v)
     if type(v) == 'table' then 
         return function() return utils.merge({}, v) end
@@ -54,6 +67,7 @@ function utils.constant(v)
     end
 end
 
+-- check whether a value can be called like a function
 function utils.is_callable(v)
     local vt = type(v)
     if vt == 'table' then
@@ -65,6 +79,8 @@ function utils.is_callable(v)
     end
 end
 
+-- create a table where missing keys automatically
+-- insert the default value
 function utils.default_table(default)
     if not utils.is_callable(default) then
         default = utils.constant(default)
@@ -74,6 +90,20 @@ function utils.default_table(default)
             local v = default(k)
             t[k] = v
             return v
+        end
+    })
+end
+
+-- create a table that looks up keys in the inputs
+-- starting from left to right until the key is found
+function utils.cascaded_table(...)
+    local tables = {...}
+    return setmetatable({}, {
+        __index = function(_, k)
+            for _, tab in ipairs(tables) do
+                local v = tab[k]
+                if v then return v end
+            end
         end
     })
 end
