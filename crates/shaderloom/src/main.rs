@@ -43,6 +43,11 @@ mod tests {
     }
 
     #[test]
+    fn lua_python_target() {
+        LuaExecutor::new().run_tests("targets.python.xgpu").unwrap();
+    }
+
+    #[test]
     fn lua_dev() {
         LuaExecutor::new().run_tests("tests.dev").unwrap();
     }

@@ -1,3 +1,4 @@
+---@diagnostic disable-next-line: undefined-global
 if jit and jit.os == "Windows" then
     -- Make sure the Windows console is set to use the Unicode codepage
     -- (so that we can print emojis)

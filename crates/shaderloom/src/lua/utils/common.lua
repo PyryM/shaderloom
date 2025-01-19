@@ -57,10 +57,22 @@ function utils.curry(argcount, func)
     return _curry(argcount, func, {})
 end
 
+---create a new list by applying a function to each element
+---@param items any[]
+---@param func fun(item: any, idx: number): any
+---@return any[]
+function utils.map(items, func)
+    local mapped = {}
+    for idx, item in ipairs(items) do
+        mapped[idx] = func(item, idx)
+    end
+    return mapped
+end
+
 -- create a zero-argument function that returns a constant
 -- if the constant is a table, then each call returns a new shallow copy
 function utils.constant(v)
-    if type(v) == 'table' then 
+    if type(v) == 'table' then
         return function() return utils.merge({}, v) end
     else
         return function() return v end
@@ -79,8 +91,10 @@ function utils.is_callable(v)
     end
 end
 
--- create a table where missing keys automatically
--- insert the default value
+---create a table where keys are lazily populated
+---with the default value
+---@param default (fun(key: string?): any) | any
+---@return table
 function utils.default_table(default)
     if not utils.is_callable(default) then
         default = utils.constant(default)
@@ -128,7 +142,7 @@ function tests.curry()
     local curried = utils.curry(3, function(a, b, c)
         return a .. b .. c
     end)
-    
+
     local res1 = curried "hello" "world" [[asdf]]
     local partial = curried "goodbye" "world"
     local res2 = partial "?"

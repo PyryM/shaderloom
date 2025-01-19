@@ -29,7 +29,7 @@ require = function(name)
 end
 
 -- luajit vs. lua 5.4 compat
-if loadstring then 
+if loadstring then
     -- lua5.1 / jit
     function loadstring_env(source, name, env)
         local chunk, err = loadstring(source, name)
@@ -38,7 +38,7 @@ if loadstring then
         end
         return chunk, err
     end
-else 
+else
     -- lua 5.4
     function loadstring_env(source, name, env)
         return load(source, name, "t", env)

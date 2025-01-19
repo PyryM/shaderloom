@@ -55,7 +55,11 @@ impl LuaExecutor {
         if let Err(e) = lua.load(LUA_EMBEDS).set_name("=<BUNDLE>").exec() {
             //println!("{}", LUA_EMBEDS);
             let msg = e.to_string();
-            panic!("Lua error in '{}': {}", concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"), msg);
+            panic!(
+                "Lua error in '{}': {}",
+                concat!(env!("OUT_DIR"), "/embedded_lua_bundle.lua"),
+                msg
+            );
         };
         Self { lua }
     }

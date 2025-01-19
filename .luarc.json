@@ -1,0 +1,5 @@
+{
+    "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+    "diagnostics.disable": ["lowercase-global", "deprecated"],
+    "runtime.version": "Lua 5.4"
+}
