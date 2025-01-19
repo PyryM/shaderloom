@@ -4,6 +4,10 @@ local default_table = utils.default_table
 
 local naga = {}
 
+---@class TypeDef
+---@field kind string
+---@field name string
+
 local type_mt = {}
 local function Type(t)
     return setmetatable(t, type_mt)
@@ -59,6 +63,16 @@ local function fix_matrix(registry, s)
     return Type{kind="matrix", name=name, inner=inner, size=size, rows=rows, cols=cols}
 end
 
+---@class StructMember
+---@field name string
+---@field offset number
+---@field binding table?
+---@field ty TypeDef
+
+---@class StructDef: TypeDef
+---@field size number
+---@field members StructMember[]
+
 local function fix_struct(registry, s)
     local name = s.name
     s = s.inner.Struct
@@ -80,6 +94,16 @@ local function fix_array_count(count)
     error("Couldn't interpret array size:", count)
 end
 
+---@class ArrayDef: TypeDef
+---@field size number
+---@field stride number
+---@field count number?
+---@field inner TypeDef
+
+---Fix an array type definition
+---@param registry table<string|number, TypeDef>
+---@param s any
+---@return ArrayDef
 local function fix_array(registry, s)
     if s.inner then s = s.inner.Array end
     local inner = registry[s.base]
@@ -168,6 +192,13 @@ local function fix_sampler(registry, s)
     }
 end
 
+---@class AtomicDef: TypeDef
+---@field inner TypeDef
+
+---Fix an atomic type definition
+---@param registry table<string|number, TypeDef>
+---@param s any
+---@return AtomicDef
 local function fix_atomic(registry, s)
     if s.inner then s = s.inner.Atomic end
     local inner = fix_scalar(registry, s)
@@ -203,6 +234,13 @@ local function fix_and_register_type(registry, idx, t)
     return fixed
 end
 
+---@class VarDef
+---@field name string
+---@field ty TypeDef
+---@field space string
+---@field access table?
+---@field binding table?
+
 local function fix_and_register_var(registry, vars, bindgroups, item)
     local space, access = nil, nil
     if type(item.space) == "string" then
@@ -226,6 +264,11 @@ local function fix_and_register_var(registry, vars, bindgroups, item)
     end
 end
 
+---@class FunctionArg
+---@field name string
+---@field ty TypeDef
+---@field binding table?
+
 local function fix_function_arg(registry, arg)
     return {
         name = arg.name,
@@ -233,6 +276,10 @@ local function fix_function_arg(registry, arg)
         binding = fixnull(arg.binding),
     }
 end
+
+---@class FunctionDef
+---@field arguments FunctionArg[]
+---@field result FunctionArg?
 
 local function fix_function(registry, func)
     return {
@@ -245,6 +292,12 @@ local function fix_function(registry, func)
     }
 end
 
+---@class EntryPointDef
+---@field name string
+---@field stage string
+---@field workgroup_size [number, number, number]
+---@field func any
+
 local function fix_entry_point(registry, target, entry)
     local stage = entry.stage:lower()
     table.insert(target[stage], {
@@ -255,6 +308,17 @@ local function fix_entry_point(registry, target, entry)
     })
 end
 
+---@class ShaderDef
+---@field raw any
+---@field types table<number | string, TypeDef>
+---@field vars table<string, VarDef>
+---@field bindgroups table<number, table>
+---@field entry_points table<string, EntryPointDef[]>
+
+---Fix naga-returned parse result
+---@param data any
+---@param annotations any
+---@return ShaderDef
 local function fixup(data, annotations)
     annotations = annotations or {}
     local visibility_annotations = annotations.visibility or {}
@@ -286,6 +350,11 @@ local function fixup(data, annotations)
     }
 end
 
+---Parse WGSL source, optionally validating
+---@param shader any
+---@param validate boolean?
+---@return ShaderDef
+---@return string|nil
 function naga.parse(shader, validate)
     local source, annotations
     if type(shader) == 'table' then
