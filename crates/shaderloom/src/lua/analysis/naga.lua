@@ -1,5 +1,6 @@
 local deep_print = require "utils.deepprint"
-local default_table = require("utils.common").default_table
+local utils = require "utils.common"
+local default_table = utils.default_table
 
 local naga = {}
 
@@ -8,9 +9,9 @@ local function Type(t)
     return setmetatable(t, type_mt)
 end
 
-local function fixnull(val)
+local function fixnull(val, mapfunc)
     if val == null then return nil end
-    return val
+    if mapfunc then return mapfunc(val) else return val end
 end
 
 local SCALARS = {
@@ -225,12 +226,32 @@ local function fix_and_register_var(registry, vars, bindgroups, item)
     end
 end
 
-local function fix_entry_point(target, entry)
+local function fix_function_arg(registry, arg)
+    return {
+        name = arg.name,
+        ty = assert(registry[arg.ty]),
+        binding = fixnull(arg.binding),
+    }
+end
+
+local function fix_function(registry, func)
+    return {
+        arguments = utils.map(func.arguments, function(arg)
+            return fix_function_arg(registry, arg)
+        end),
+        result = fixnull(func.result, function(res)
+            return fix_function_arg(registry, res)
+        end)
+    }
+end
+
+local function fix_entry_point(registry, target, entry)
     local stage = entry.stage:lower()
     table.insert(target[stage], {
         name = entry.name,
         stage = stage,
-        workgroup_size = entry.workgroup_size
+        workgroup_size = entry.workgroup_size,
+        func = fix_function(registry, entry["function"])
     })
 end
 
@@ -253,7 +274,7 @@ local function fixup(data, annotations)
     setmetatable(bindgroups, nil)
     local entry_points = default_table({})
     for _, entry in ipairs(data.entry_points) do
-        fix_entry_point(entry_points, entry)
+        fix_entry_point(registry, entry_points, entry)
     end
     setmetatable(entry_points, nil)
     return {
@@ -377,6 +398,10 @@ end
 
 function tests:parse_bindgroups()
     local src = [[
+    struct VertexInput {
+        @location(0) position: vec4f,
+    }
+
     struct PrimeIndices {
         erm: array<u32, 100>,
         data: array<u32>
