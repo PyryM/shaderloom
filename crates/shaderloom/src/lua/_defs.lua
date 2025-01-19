@@ -11,6 +11,10 @@ function loom:glob(pattern) end
 ---@param source string
 function loom:parse_wgsl(source) end
 
+---@param source string
+---@param flags number?
+function loom:parse_and_validate_wgsl(source, flags) end
+
 ---@param msg string
 function loom:print(msg) end
 
