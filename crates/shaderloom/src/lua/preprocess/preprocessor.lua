@@ -126,6 +126,10 @@ function Preprocessor:process_source(source, name)
     chunk()
 end
 
+---@class PreprocessorOutput
+---@field source string
+---@field annotations table<string, any>
+
 function Preprocessor:get_output()
     local output = table.concat(self.frags, "")
     local annotations = {visibility={}, bindgroups={}}

@@ -4,6 +4,15 @@
 
 local utils = {}
 
+-- insert multiple elements into the end of a table
+function utils.insert(target, ...)
+    local startidx = #target
+    for idx = 1, select('#', ...) do
+        target[startidx+idx] = select(idx, ...)
+    end
+    return target
+end
+
 -- concatenate two list-like tables into a new table
 function utils.concat(left, right)
     local ret = {}
@@ -67,6 +76,43 @@ function utils.map(items, func)
         mapped[idx] = func(item, idx)
     end
     return mapped
+end
+
+-- create a 'set' from a list, i.e., a table where
+-- the keys are the elements of the list and the values
+-- are true
+---@param items any[]
+---@return table<any, boolean>
+function utils.set(items)
+    local ret = {}
+    for _, item in ipairs(items) do
+        ret[item] = true
+    end
+    return ret
+end
+
+--- filter a k,v table with a function, creating
+--- a new table with only the k,v pairs where filter(k, v) is true
+---@param tab table<any, any>
+---@param filter fun(k: any, v: any): boolean
+function utils.filter_dict(tab, filter)
+    local ret = {}
+    for k, v in pairs(tab) do
+        if filter(k, v) then ret[k] = v end
+    end
+    return ret
+end
+
+--- turn a k,v dict into a list of {k, v} pairs
+--- creates a new list
+---@param tab table<any, any>
+---@return {any, any}[]
+function utils.kv_pairs(tab)
+    local ret = {}
+    for k, v in pairs(tab) do
+        table.insert(ret, {k, v})
+    end
+    return ret
 end
 
 -- create a zero-argument function that returns a constant

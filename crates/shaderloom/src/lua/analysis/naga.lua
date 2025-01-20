@@ -351,7 +351,7 @@ local function fixup(data, annotations)
 end
 
 ---Parse WGSL source, optionally validating
----@param shader any
+---@param shader string | PreprocessorOutput
 ---@param validate boolean?
 ---@return ShaderDef
 ---@return string|nil
@@ -369,6 +369,16 @@ function naga.parse(shader, validate)
         parsed = loom:parse_wgsl(source)
     end
     return fixup(parsed, annotations), validation_errors
+end
+
+---Parse WGSL source, returning only the struct definitions
+---@param shader string | PreprocessorOutput
+---@return table<string, StructDef>
+function naga.parse_structs(shader)
+    local parsed = naga.parse(shader)
+    return utils.filter_dict(parsed.types, function(name, ty)
+        return type(name) == 'string' and ty.kind == 'struct'
+    end)
 end
 
 local tests = {}
@@ -463,6 +473,23 @@ function tests:parse_primitives()
     assert(vars.v_i32.ty == SCALARS.i32, "parsed var v_i32")
     assert(vars.v_f32.ty == SCALARS.f32, "parsed var v_f32")
     assert(vars.v_bool.ty == SCALARS.bool, "parsed var v_bool")
+end
+
+function tests:parse_structs()
+    local src = [[
+    struct VertexInput {
+        @location(0) position: vec4f,
+    }
+
+    struct PrimeIndices {
+        erm: array<u32, 100>,
+        data: array<u32>
+    } // this is used as both input and output for convenience
+    ]]
+    local parsed = naga.parse_structs(src)
+    assert(parsed.VertexInput, "VertexInput exists")
+    assert(parsed.PrimeIndices, "PrimeIndices exists")
+    assert(#utils.kv_pairs(parsed) == 2, "Only two things returned")
 end
 
 function tests:parse_bindgroups()

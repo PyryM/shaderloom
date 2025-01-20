@@ -43,6 +43,12 @@ mod tests {
     }
 
     #[test]
+    fn lua_unify() {
+        LuaExecutor::new().run_tests("analysis.unify").unwrap();
+    }
+
+
+    #[test]
     fn lua_python_target() {
         LuaExecutor::new().run_tests("targets.python.xgpu").unwrap();
     }
