@@ -358,8 +358,10 @@ end
 function naga.parse(shader, validate)
     local source, annotations
     if type(shader) == 'table' then
+        ---@cast shader PreprocessorOutput
         source, annotations = shader.source, shader.annotations
     else
+        ---@cast shader string
         source = shader
     end
     local parsed, validation_errors

@@ -62,6 +62,19 @@ function stringmanip.dedent(block)
     return table.concat(lines, "\n")
 end
 
+---Produce a hash of a string
+---@param str string
+---@return string
+function stringmanip.hash(str)
+    local h = 5381
+    local m = 2^32
+
+    for i = 1, #str do
+        h = (h*32 + h + str:byte(i)) % m
+    end
+    return ("%08x"):format(h)
+end
+
 function stringmanip.install()
     -- 'install' all these functions onto the string table
     -- so they'll be available as method calls on strings
@@ -70,6 +83,7 @@ function stringmanip.install()
     string.with = stringmanip.with
     string.split = stringmanip.split
     string.common_indent = stringmanip.common_indent
+    string.hash = stringmanip.hash
 end
 
 local tests = {}

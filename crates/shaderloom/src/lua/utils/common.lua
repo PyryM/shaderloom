@@ -45,6 +45,15 @@ function utils.merge(...)
     return utils.merge_into({}, ...)
 end
 
+---Make a shallow copy of a table
+---@generic K
+---@generic V
+---@param tab table<K,V>
+---@return table<K,V>
+function utils.shallow_copy(tab)
+    return utils.merge({}, tab)
+end
+
 local _concat = utils.concat
 local function _curry(argcount, func, args)
     if argcount <= 0 then
@@ -67,13 +76,30 @@ function utils.curry(argcount, func)
 end
 
 ---create a new list by applying a function to each element
----@param items any[]
----@param func fun(item: any, idx: number): any
----@return any[]
+---@generic T
+---@generic S
+---@param items T[]
+---@param func fun(item: T, idx: number): S
+---@return S[]
 function utils.map(items, func)
     local mapped = {}
     for idx, item in ipairs(items) do
         mapped[idx] = func(item, idx)
+    end
+    return mapped
+end
+
+---extract a list by applying a function to each (k,v) pair in a dict
+---@generic K
+---@generic V
+---@generic S
+---@param items table<K, V>
+---@param func fun(key: K, val: V): S
+---@return S[]
+function utils.dict_extract(items, func)
+    local mapped = {}
+    for k, v in pairs(items) do
+        table.insert(mapped, func(k, v))
     end
     return mapped
 end
@@ -91,10 +117,49 @@ function utils.set(items)
     return ret
 end
 
+---Sort a table in place with a key-extraction func
+---Table will be sorted by key_func(a) < key_func(b)
+---@generic K
+---@param tab K[]
+---@param key_func fun(v: K): any
+function utils.sort_by_key(tab, key_func)
+    table.sort(tab, function(a, b)
+        return key_func(a) < key_func(b)
+    end)
+end
+
+---Get the keys of a dictionary-type table
+---@generic K
+---@param tab table<K, any>
+---@return K[]
+function utils.keys(tab)
+    local ret = {}
+    for k, _ in pairs(tab) do
+        table.insert(ret, k)
+    end
+    return ret
+end
+
+---Get the values of a dictionary-type table
+---@generic V
+---@param tab table<any, V>
+---@return V[]
+function utils.values(tab)
+    local ret = {}
+    for _, v in pairs(tab) do
+        table.insert(ret, v)
+    end
+    return ret
+end
+
+
 --- filter a k,v table with a function, creating
 --- a new table with only the k,v pairs where filter(k, v) is true
----@param tab table<any, any>
----@param filter fun(k: any, v: any): boolean
+---@generic K
+---@generic V
+---@param tab table<K, V>
+---@param filter fun(k: K, v: V): boolean
+---@return table
 function utils.filter_dict(tab, filter)
     local ret = {}
     for k, v in pairs(tab) do
@@ -105,8 +170,10 @@ end
 
 --- turn a k,v dict into a list of {k, v} pairs
 --- creates a new list
----@param tab table<any, any>
----@return {any, any}[]
+---@generic K
+---@generic V
+---@param tab table<K, V>
+---@return [K, V][]
 function utils.kv_pairs(tab)
     local ret = {}
     for k, v in pairs(tab) do
