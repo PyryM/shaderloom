@@ -1,4 +1,5 @@
 local class = require "miniclass"
+local utils = require "utils.common"
 local chunker = require "preprocess.chunker"
 
 local Preprocessor = class "Preprocessor"
@@ -39,26 +40,36 @@ function Preprocessor:_pre_annotate(category, name, payload)
     })
 end
 
+---match one or more patterns agains the next semicolon-delimited
+---statement in the source
+---@param source string
+---@param pos number
+---@param patterns string | string[]
+---@return string | nil
+local function match_in_next_statement(source, pos, patterns)
+    if type(patterns) == 'string' then
+        patterns = {patterns}
+    end
+    local end_pos = source:find(";", pos)
+    local statement = source:sub(pos, end_pos)
+    for _, patt in ipairs(patterns) do
+        local match = statement:match(patt)
+        if match then return match end
+    end
+end
+
 -- captures name from e.g., "var tex_whatever: texture_multisampled_2d<f32>;"
-local VISIBILITY_PATT_BARE = "var%s+([^%s:]*)%s*:"
-local VISIBILITY_PATT_TEMPLATE = "var%s*%b<>%s*([^%s:]*)%s*:"
+local VISIBILITY_PATTERNS = {
+    "var%s+([^%s:]*)%s*:",
+    "var%s*%b<>%s*([^%s:]*)%s*:"
+}
+
 local function _annotate_visibility(call_info, source)
-    local end_pos = source:find(";", call_info.pos)
-    local statement = source:sub(call_info.pos, end_pos)
     local var_name = assert(
-        statement:match(VISIBILITY_PATT_TEMPLATE)
-        or statement:match(VISIBILITY_PATT_BARE),
+        match_in_next_statement(source, call_info.pos, VISIBILITY_PATTERNS),
         "Unmatched visibility annotation"
     )
     return "visibility", var_name, call_info.args
-end
-
-local function set(items)
-    local s = {}
-    for _, item in ipairs(items) do
-        s[item] = true
-    end
-    return s
 end
 
 function Preprocessor:annotate_visibility(...)
@@ -69,23 +80,27 @@ function Preprocessor:annotate_visibility(...)
     if #args == 1 and type(args[1]) == 'table' then
         args = args[1]
     end
-    self:annotate(_annotate_visibility, set(args))
+    self:annotate(_annotate_visibility, utils.set(args))
 end
 
-local bind_helper_mt = {}
-bind_helper_mt.__index = bind_helper_mt
-function bind_helper_mt:__tostring() return tostring(self.id) end
-function bind_helper_mt:binding(bind)
-    self.ctx:emit_raw(("@group(%d) @binding(%d)"):format(self.id, bind))
+local BINDGROUP_PATTERN = "@group%(([^%(]*)%)"
+local function _annotate_bindgroup(call_info, source)
+    local group_id_str = assert(
+        match_in_next_statement(source, call_info.pos, BINDGROUP_PATTERN),
+        "Unmatched bindgroup @group() annotation"
+    )
+    local group_id = assert(
+        tonumber(group_id_str),
+        ("group id '%s' is not a number!"):format(group_id_str)
+    )
+    return "bindgroups", group_id, call_info.args
 end
 
 function Preprocessor:annotate_bindgroup(args)
-    assert(type(args) == "table", "bindgroup{} expects a table argument!")
-    local id = assert(args.id or args[1], "missing .id in bindgroup{...}!")
-    local name = args.name or ("bindgroup_" .. id)
-    local shared = not not args.shared
-    self:_pre_annotate("bindgroups", name, {id=id, name=name, shared=shared})
-    return setmetatable({id=id, ctx=self}, bind_helper_mt)
+    if type(args) == 'string' then
+        args = {name = args}
+    end
+    self:annotate(_annotate_bindgroup, args or {})
 end
 
 function Preprocessor:annotate_name(name)
@@ -126,10 +141,27 @@ function Preprocessor:process_source(source, name)
     chunk()
 end
 
+---@class Visibility
+---@field vertex boolean?
+---@field fragment boolean?
+---@field compute boolean?
+
+---@class BindgroupInfo
+---@field id number
+---@field name string?
+---@field shared boolean?
+
+---@class Annotations
+---@field visibility table<string, Visibility>
+---@field name string?
+---@field bindgroups table<number, BindgroupInfo>
+
 ---@class PreprocessorOutput
 ---@field source string
----@field annotations table<string, any>
+---@field annotations Annotations
 
+---Get the preprocessed output
+---@return PreprocessorOutput
 function Preprocessor:get_output()
     local output = table.concat(self.frags, "")
     local annotations = {visibility={}, bindgroups={}}
@@ -237,11 +269,11 @@ function tests.visibility_annotation()
     local deq = require("utils.deepeq").dict_exact_equal
     local seq = require("utils.deepeq").string_equal
     assert(seq(
-        ("var < workgroup > foo : u32"):match(VISIBILITY_PATT_TEMPLATE, 1),
+        ("var < workgroup > foo : u32"):match(VISIBILITY_PATTERNS[2], 1),
         "foo"
     ))
     assert(seq(
-        ("var tex_whatever: texture_2d<f32>;"):match(VISIBILITY_PATT_BARE, 1),
+        ("var tex_whatever: texture_2d<f32>;"):match(VISIBILITY_PATTERNS[1], 1),
         "tex_whatever"
     ))
 
@@ -270,20 +302,19 @@ function tests.bindgroup_annotation()
     local dedent = require("utils.stringmanip").dedent
     local files = {
         MAIN=dedent[[
-        # bindgroup{0, name="uniforms", shared=true}
-        # FOOBAR = bindgroup{
-        #   id=2,
-        #   name="foobar"
-        # }
-        @group(${{FOOBAR}})
-        # FOOBAR:binding(3)
+        # bindgroup "foobar"
+        @group(0) @binding(0) 
+        var<storage, read_write > v_ehhhh_32 : array<f32>;
+        # bindgroup "uniforms"
+        # FOOBAR = 7;
+        @group(${{FOOBAR}}) @binding(3) 
+        var<storage, read_write > v_ehhhh_32 : array<f32>;
         ]],
     }
     local proc = test_proc(files)
     local translated, annotations = proc.source, proc.annotations
-    assert(seq(translated, "@group(2)\n@group(2) @binding(3)"))
-    assert(deq(annotations.bindgroups.uniforms, {id=0, name="uniforms", shared=true}))
-    assert(deq(annotations.bindgroups.foobar, {id=2, name="foobar", shared=false}))
+    assert(deq(annotations.bindgroups[7], {name="uniforms"}))
+    assert(deq(annotations.bindgroups[0], {name="foobar"}))
 end
 
 function tests.name_annotation()
