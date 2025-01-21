@@ -7,14 +7,9 @@ local naga = require "analysis.naga"
 local utils = require "utils.common"
 local unify = {}
 
----@class UnifiedStruct
----@field inner StructDef
----@field unique_name string
----@field source_name string
-
 ---@class UniqueStructMapping
----@field structs UnifiedStruct[]
----@field mapping table<StructDef, UnifiedStruct>
+---@field structs StructDef[]
+---@field mapping table<StructDef, StructDef>
 
 ---Unwrap an array or atomic into its inner type
 ---@param ty TypeDef
@@ -120,8 +115,12 @@ function unify.layout_signature(ty)
     end
 end
 
+---Shallow copy a struct type def, including making copies of members
+---@param ty StructDef
+---@return StructDef
 local function _shallow_copy_struct_type(ty)
     local ret = utils.shallow_copy(ty)
+    ---@cast ret StructDef
     ret.members = utils.map(ret.members, utils.shallow_copy)
     return ret
 end

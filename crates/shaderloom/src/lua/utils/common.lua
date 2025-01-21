@@ -19,7 +19,7 @@ function utils.concat_into(left, right)
     for idx = 1, right_count do
         left[idx + left_count] = right[idx]
     end
-    return ret
+    return left
 end
 
 -- concatenate two list-like tables into a new table
