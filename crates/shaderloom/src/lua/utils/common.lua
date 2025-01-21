@@ -13,6 +13,15 @@ function utils.insert(target, ...)
     return target
 end
 
+function utils.concat_into(left, right)
+    local left_count = #left
+    local right_count = #right
+    for idx = 1, right_count do
+        left[idx + left_count] = right[idx]
+    end
+    return ret
+end
+
 -- concatenate two list-like tables into a new table
 function utils.concat(left, right)
     local ret = {}
@@ -52,6 +61,14 @@ end
 ---@return table<K,V>
 function utils.shallow_copy(tab)
     return utils.merge({}, tab)
+end
+
+---Make a shallow copy of a list-like table
+---@generic V
+---@param tab V[]
+---@return V[]
+function utils.shallow_copy_list(tab)
+    return utils.concat({}, tab)
 end
 
 local _concat = utils.concat

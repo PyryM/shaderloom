@@ -100,6 +100,14 @@ end
 ---@field count number?
 ---@field inner TypeDef
 
+function naga.array_name(inner, count)
+    if count then
+        return ("array<%s,%d>"):format(inner.name, count)
+    else
+        return ("array<%s>"):format(inner.name)
+    end
+end
+
 ---Fix an array type definition
 ---@param registry table<string|number, TypeDef>
 ---@param s any
@@ -113,13 +121,15 @@ local function fix_array(registry, s)
     if count and stride then
         size = count * stride
     end
-    local name
-    if count then
-        name = ("array<%s,%d>"):format(inner.name, count)
-    else
-        name = ("array<%s>"):format(inner.name)
-    end
-    return Type{kind="array", name=name, size=size, count=count, inner=inner, stride=stride}
+    local ret = Type{
+        kind="array", 
+        name=naga.array_name(inner, count), 
+        size=size, 
+        count=count, 
+        inner=inner, 
+        stride=stride
+    }
+    return ret
 end
 
 local TEXTUREDIMS = {

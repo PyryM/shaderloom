@@ -3,6 +3,7 @@
 -- find merged structs, bindgroups, etc. in a collection
 -- of shaders
 
+local naga = require "analysis.naga"
 local utils = require "utils.common"
 local unify = {}
 
@@ -56,21 +57,6 @@ function unify.find_shared_structs(shader, target)
         _find_shared_structs(structs, seen, var.ty)
     end
     return structs
-end
-
----Find and unify structs shared with the host system
----@param shaders ShaderDef[]
----@return UniqueStructMapping
-function unify.unify_host_shared_structs(shaders)
-    local structs = {}
-    for _, shader in ipairs(shaders) do
-        unify.find_shared_structs(shader, structs)
-    end
-
-    return {
-        structs = {},
-        mapping = {}
-    }
 end
 
 function unify.unify_bind_groups(shaders)
@@ -134,6 +120,12 @@ function unify.layout_signature(ty)
     end
 end
 
+local function _shallow_copy_struct_type(ty)
+    local ret = utils.shallow_copy(ty)
+    ret.members = utils.map(ret.members, utils.shallow_copy)
+    return ret
+end
+
 ---Gather structs together by their memory layout signatures
 ---@param structs table<any, StructDef>
 ---@return table<StructDef, StructDef>
@@ -144,7 +136,9 @@ function unify.gather(structs)
     for _, struct in pairs(structs) do
         local sig = unify.layout_signature(struct)
         if sig then
-            if not exemplars[sig] then exemplars[sig] = struct end
+            if not exemplars[sig] then 
+                exemplars[sig] = _shallow_copy_struct_type(struct)
+            end
             remapping[struct] = exemplars[sig]
         end
     end
@@ -152,8 +146,8 @@ function unify.gather(structs)
 end
 
 ---Assign names to get rid of name collisions
+---Struct names are modified *in place*
 ---@param exemplars table<string, StructDef>
----@return table<StructDef, string>
 function unify.assign_names(exemplars)
     local sorted_exemplars = utils.kv_pairs(exemplars)
     utils.sort_by_key(sorted_exemplars, function(item) return item[1] end)
@@ -166,11 +160,72 @@ function unify.assign_names(exemplars)
     for sig, exemplar in pairs(exemplars) do
         local name = exemplar.name
         if name_counts[name] > 1 then
-            name = name .. "_" .. sig:hash()
+            exemplar.name = name .. "_" .. sig:hash()
         end
-        names[exemplar] = name
     end
-    return names
+end
+
+local _remap_array, _remap_struct, _remap_ty
+
+function _remap_ty(target, seen, mapping, ty)
+    if ty.kind == 'array' then
+        return _remap_array(target, seen, mapping, ty)
+    elseif ty.kind == 'struct' then
+        return _remap_struct(target, seen, mapping, ty)
+    else
+        return ty
+    end
+end
+
+--Semi deep copy a possibly nested array with a mapping
+function _remap_array(target, seen, mapping, arr)
+    local inner = arr.inner
+    local new_inner = _remap_ty(target, seen, mapping, inner)
+    if new_inner == inner then 
+        return arr
+    else
+        return utils.merge({}, arr, {
+            inner=new_inner,
+            name=naga.array_name(new_inner, arr.count)
+        })
+    end
+end
+
+---Helper function to remap, topo sort, and fix members
+function _remap_struct(target, seen, mapping, struct)
+    struct = assert(mapping[struct], "Missing struct? " .. struct.name)
+    if not seen[struct] then
+        seen[struct] = true   
+        for _, member in ipairs(struct.members) do
+            member.ty = _remap_ty(target, seen, mapping, member.ty)
+        end
+        table.insert(target, struct)
+    end
+    return struct
+end
+
+---Find and unify structs shared with the host system
+---@param shaders ShaderDef[]
+---@return UniqueStructMapping
+function unify.unify_host_shared_structs(shaders)
+    local structs = {}
+    for _, shader in ipairs(shaders) do
+        unify.find_shared_structs(shader, structs)
+    end
+    local mapping, exemplars = unify.gather(structs)
+    unify.assign_names(exemplars)
+
+    local out_list = {}
+    local seen = {}
+
+    for _, struct in ipairs(structs) do
+        _remap_struct(out_list, seen, mapping, struct)
+    end
+
+    return {
+        structs = out_list,
+        mapping = mapping
+    }
 end
 
 local tests = {}
@@ -218,7 +273,10 @@ function tests.renaming()
     )
 
     local mapping, exemplars = unify.gather(structs)
-    local exemplar_names = utils.values(unify.assign_names(exemplars))
+    unify.assign_names(exemplars)
+    local exemplar_names = utils.dict_extract(exemplars, function(_, v)
+        return v.name
+    end)
 
     --local leq = require("utils.deepeq").list_equal
     deepprint(exemplar_names)
@@ -227,6 +285,73 @@ function tests.renaming()
     assert(
         mapping[p1.types.VertexStruct] ~= mapping[p2.types.VertexStruct],
         "VertexStructs should be unique!"
+    )
+    assert(
+        mapping[p1.types.PbrStruct] == mapping[p2.types.PbrStruct],
+        "PbrStructs should be merged!"
+    )
+end
+
+function tests.unification()
+    local src1 = [[
+    struct Foozle {
+        thinger: u32
+    }
+
+    struct PbrStruct {
+        diffuse: vec4<f32>,
+        metallic: vec4<f32>,
+    }
+
+    struct VertexStruct {
+        position: vec4f,
+        foozle: array<Foozle,3>,
+        material: PbrStruct
+    }
+    
+    @group(0) @binding(0) var<uniform> uniforms: VertexStruct;
+    ]]
+    local src2 = [[
+    struct Foozle {
+        thinger: i32
+    }
+
+    struct PbrStruct {
+        diffuse:   vec4f,
+        metallic:  vec4f,
+    }
+
+    struct VertexStruct {
+        position: vec4f,
+        foozle: array<Foozle,3>,
+        material: PbrStruct
+    }
+
+    @group(0) @binding(0) var<uniform> uniforms: VertexStruct;
+    ]]
+    local deepprint = require "utils.deepprint"
+    local naga = require "analysis.naga"
+    local structs = {}
+    local p1 = naga.parse(src1)
+    local p2 = naga.parse(src2)
+
+    local unified = unify.unify_host_shared_structs({p1, p2})
+
+    assert(#unified.structs == 5, "Wrong number of structs?")
+    local struct_names = utils.map(unified.structs, function(v)
+        return v.name
+    end)
+
+    local mapping = unified.mapping
+    deepprint(struct_names)
+
+    assert(
+        mapping[p1.types.VertexStruct] ~= mapping[p2.types.VertexStruct],
+        "VertexStructs should be unique!"
+    )
+    assert(
+        mapping[p1.types.Foozle] ~= mapping[p2.types.Foozle],
+        "Foozles should be unique!"
     )
     assert(
         mapping[p1.types.PbrStruct] == mapping[p2.types.PbrStruct],
