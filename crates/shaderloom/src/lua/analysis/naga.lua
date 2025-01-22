@@ -122,11 +122,11 @@ local function fix_array(registry, s)
         size = count * stride
     end
     local ret = Type{
-        kind="array", 
-        name=naga.array_name(inner, count), 
-        size=size, 
-        count=count, 
-        inner=inner, 
+        kind="array",
+        name=naga.array_name(inner, count),
+        size=size,
+        count=count,
+        inner=inner,
         stride=stride
     }
     return ret
@@ -219,6 +219,31 @@ local function fix_atomic(registry, s)
     }
 end
 
+local function fix_binding_array(registry, s)
+    if s.inner then s = s.inner.BindingArray end
+    local inner = registry[s.base]
+    local count = fix_array_count(s.size)
+    local name
+    if count then
+        name = ("binding_array<%s,%d>"):format(inner.name, count)
+    else
+        name = ("binding_array<%s>"):format(inner.name)
+    end
+    return Type{
+        kind="binding_array",
+        name=name,
+        count=count,
+        inner=inner
+    }
+end
+
+local function fix_acceleration_structure(registry, s)
+    return Type{
+        kind="acceleration_structure",
+        name="acceleration_structure"
+    }
+end
+
 local VARTYPES = {
     Scalar = fix_scalar,
     Vector = fix_vector,
@@ -228,10 +253,20 @@ local VARTYPES = {
     Image = fix_image,
     Sampler = fix_sampler,
     Atomic = fix_atomic,
+    BindingArray = fix_binding_array,
+    AccelerationStructure = fix_acceleration_structure,
 }
 
+local function unwrap_enum(t)
+    if type(t) == 'string' then
+        return t
+    else
+        return next(t)
+    end
+end
+
 local function fix_and_register_type(registry, idx, t)
-    local enum_kind = next(t.inner)
+    local enum_kind = unwrap_enum(t.inner)
     local fixer = VARTYPES[enum_kind]
     if not fixer then
         deep_print(t)
@@ -536,6 +571,28 @@ function tests:parse_bindgroups()
     assert(bindgroups[0].bindings[0].ty == types.PrimeIndices)
     assert(bindgroups[1].bindings[1].name == "samp_b")
     assert(bindgroups[1].bindings[1].ty == types.sampler_comparison)
+end
+
+function tests:parse_exotics()
+    -- exotic things you might bind
+    local src = [[
+    // 'bindless' texture array
+    @group(0) @binding(0)
+    var textures: binding_array<texture_2d<f32>, 10>;
+
+    // raytracing
+    @group(0) @binding(1)
+    var accel: acceleration_structure;
+    ]]
+
+    local parsed = naga.parse(src)
+    local types, vars, bindgroups = parsed.types, parsed.vars, parsed.bindgroups
+    assert(bindgroups[0].bindings[0].name == "textures")
+    assert(bindgroups[0].bindings[0].ty.kind == "binding_array")
+    assert(bindgroups[0].bindings[0].ty.count == 10)
+    assert(bindgroups[0].bindings[0].ty.inner.name == "texture_2d<f32>")
+    assert(bindgroups[0].bindings[1].name == "accel")
+    assert(bindgroups[0].bindings[1].ty.kind == "acceleration_structure")
 end
 
 return naga
