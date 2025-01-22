@@ -5,7 +5,16 @@
 ---@class loom
 loom = {}
 
+
+---@class GlobItem
+---@field path string
+---@field abspath string?
+---@field is_file boolean
+---@field is_dir boolean
+---@field file_name string?
+
 ---@param pattern string
+---@return GlobItem[]
 function loom:glob(pattern) end
 
 ---@param source string

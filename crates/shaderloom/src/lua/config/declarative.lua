@@ -6,14 +6,6 @@ local merge_into = require("utils.common").merge_into
 local curry = require("utils.common").curry
 local log = require "log"
 
--- pub struct GlobItem {
---     path: String,
---     abspath: Option<String>,
---     is_file: bool,
---     is_dir: bool,
---     file_name: Option<String>,
--- }
-
 local function use(env)
     local target = nil
     local target_config = {}
