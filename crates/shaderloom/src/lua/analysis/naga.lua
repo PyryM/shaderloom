@@ -13,9 +13,30 @@ local function Type(t)
     return setmetatable(t, type_mt)
 end
 
-local function fixnull(val, mapfunc)
-    if val == null then return nil end
-    if mapfunc then return mapfunc(val) else return val end
+---Fix serde 'null' into actual nil
+---@generic T
+---@param val T|nil
+---@return T|nil
+local function fixnull(val)
+    if val == null then
+        return nil
+    else
+        return  val
+    end
+end
+
+---@generic T
+---@generic U
+---@param val T|nil
+---@param mapfunc fun(v: T): U
+---@return U|nil
+local function mapnull(val, mapfunc)
+    val = fixnull(val)
+    if val ~= nil then 
+        return mapfunc(val)
+    else
+        return nil
+    end
 end
 
 local SCALARS = {
@@ -219,6 +240,10 @@ local function fix_atomic(registry, s)
     }
 end
 
+---@class BindingArrayDef: TypeDef
+---@field inner TypeDef
+---@field count number?
+
 local function fix_binding_array(registry, s)
     if s.inner then s = s.inner.BindingArray end
     local inner = registry[s.base]
@@ -279,14 +304,31 @@ local function fix_and_register_type(registry, idx, t)
     return fixed
 end
 
+---@class RawBindInfo
+---@field binding number
+---@field group number
+
+---@class BindGroupInfo
+---@field name string?
+---@field shared boolean?
+---@field bindings table<number, VarDef>
+
 ---@class VarDef
 ---@field name string
 ---@field ty TypeDef
 ---@field space string
 ---@field access table?
----@field binding table?
+---@field binding RawBindInfo?
+---@field visibility Visibility?
 
-local function fix_and_register_var(registry, vars, bindgroups, item)
+---Handle a variable
+---@param registry table<string|number, TypeDef>
+---@param annotations Annotations
+---@param vars table<string, VarDef>
+---@param bindgroups table<number, BindGroupInfo>
+---@param item any
+local function fix_and_register_var(registry, annotations, vars, bindgroups, item)
+    local visibility = annotations.visibility or {}
     local space, access = nil, nil
     if type(item.space) == "string" then
         space = item.space:lower()
@@ -295,6 +337,7 @@ local function fix_and_register_var(registry, vars, bindgroups, item)
         access = item.space[space].access
     end
     local ty = assert(registry[item.ty])
+    ---@type RawBindInfo|nil
     local binding = fixnull(item.binding)
     local var = {
         name = item.name,
@@ -302,6 +345,7 @@ local function fix_and_register_var(registry, vars, bindgroups, item)
         space = space,
         access = access,
         binding = binding,
+        visibility = visibility[item.name]
     }
     vars[item.name] = var
     if binding then
@@ -331,7 +375,7 @@ local function fix_function(registry, func)
         arguments = utils.map(func.arguments, function(arg)
             return fix_function_arg(registry, arg)
         end),
-        result = fixnull(func.result, function(res)
+        result = mapnull(func.result, function(res)
             return fix_function_arg(registry, res)
         end)
     }
@@ -355,30 +399,34 @@ end
 
 ---@class ShaderDef
 ---@field raw any
+---@field name string?
 ---@field types table<number | string, TypeDef>
 ---@field vars table<string, VarDef>
----@field bindgroups table<number, table>
+---@field bindgroups table<number, BindGroupInfo>
 ---@field entry_points table<string, EntryPointDef[]>
 
 ---Fix naga-returned parse result
 ---@param data any
----@param annotations any
+---@param annotations Annotations
 ---@return ShaderDef
 local function fixup(data, annotations)
     annotations = annotations or {}
-    local visibility_annotations = annotations.visibility or {}
-    local bindgroup_annotations = annotations.bindgroups or {}
 
     data = data.module
     -- fix types first off
+    ---@type table<string|number, TypeDef>
     local registry = {}
     for idx, t in ipairs(data.types) do
         fix_and_register_type(registry, idx-1, t)
     end
+    ---@type table<string, VarDef>
     local vars = {}
     local bindgroups = default_table(function() return {bindings={}} end)
     for _, var in ipairs(data.global_variables) do
-        fix_and_register_var(registry, vars, bindgroups, var)
+        fix_and_register_var(registry, annotations, vars, bindgroups, var)
+    end
+    for bg_idx, bg in pairs(annotations.bindgroups or {}) do
+        utils.merge_into(bindgroups[bg_idx], {name=bg.name, shared=bg.shared})
     end
     setmetatable(bindgroups, nil)
     local entry_points = default_table({})
@@ -388,6 +436,7 @@ local function fixup(data, annotations)
     setmetatable(entry_points, nil)
     return {
         raw=data,
+        name=annotations.name,
         types=registry,
         vars=vars,
         bindgroups=bindgroups,
@@ -587,10 +636,12 @@ function tests:parse_exotics()
 
     local parsed = naga.parse(src)
     local types, vars, bindgroups = parsed.types, parsed.vars, parsed.bindgroups
+    local textures_type = bindgroups[0].bindings[0].ty
     assert(bindgroups[0].bindings[0].name == "textures")
-    assert(bindgroups[0].bindings[0].ty.kind == "binding_array")
-    assert(bindgroups[0].bindings[0].ty.count == 10)
-    assert(bindgroups[0].bindings[0].ty.inner.name == "texture_2d<f32>")
+    assert(textures_type.kind == "binding_array")
+    ---@cast textures_type BindingArrayDef
+    assert(textures_type.count == 10)
+    assert(textures_type.inner.name == "texture_2d<f32>")
     assert(bindgroups[0].bindings[1].name == "accel")
     assert(bindgroups[0].bindings[1].ty.kind == "acceleration_structure")
 end
