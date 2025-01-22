@@ -64,9 +64,9 @@ impl LuaExecutor {
         Self { lua }
     }
 
-    pub fn run_module(&self, module_name: &str) -> Result<()> {
+    pub fn run_module(&self, module_name: &str, arg: Option<String>) -> Result<()> {
         let run_module: Function = self.lua.globals().get("_run_module")?;
-        run_module.call::<()>(module_name)?;
+        run_module.call::<()>((module_name, arg))?;
         Ok(())
     }
 
@@ -99,6 +99,6 @@ impl LuaExecutor {
         };
         self.update_config(args)?;
 
-        self.run_module("cli.exec_script")
+        self.run_module("cli.exec_script", None)
     }
 }

@@ -84,12 +84,12 @@ local function assert_wrapped(f, ...)
 end
 
 -- main entry point from rust side
-function _run_module(name)
+function _run_module(name, ...)
     local module = assert(require(name), "No module named " .. name)
     if type(module) == "function" then
-        return assert_wrapped(module)
+        return assert_wrapped(module, ...)
     elseif module.main then
-        return assert_wrapped(module.main, module)
+        return assert_wrapped(module.main, ...)
     else
         print("Note: module", name, "doesn't have a .main!")
     end
