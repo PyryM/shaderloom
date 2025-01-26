@@ -153,54 +153,67 @@ local function fix_array(registry, s)
     return ret
 end
 
-local TEXTUREDIMS = {
+local TEX_DIM_NAMES = {
     D1 = "1d",
     D2 = "2d",
     D3 = "3d",
     Cube = "cube"
 }
 
-local TEXCLASSES = {
+local TEX_WGSL_DECL_NAMES = {
     Storage = "texture_storage",
     Depth = "texture_depth",
     Sampled = "texture"
 }
 
-local TEXSAMPLEFORMATS = {
+local TEX_SAMPLE_FORMATS = {
     Float = "f32",
     Sint = "i32",
     Uint = "u32",
 }
 
+local TEX_ACCESS_NAMES = {
+    LOAD = "read",
+    STORE = "write",
+    ["LOAD | STORE"] = "read_write"
+}
+
 local function image_name(s, classname, class)
-    local texname = assert(TEXCLASSES[classname])
+    local texname = assert(TEX_WGSL_DECL_NAMES[classname])
     if class.multi then
         texname = texname .. "_multisampled"
     end
-    texname = texname .. "_" .. TEXTUREDIMS[s.dim]
+    texname = texname .. "_" .. TEX_DIM_NAMES[s.dim]
     if s.arrayed then
         texname = texname .. "_array"
     end
     if class.kind then
-        texname = texname .. "<" .. TEXSAMPLEFORMATS[class.kind] .. ">"
+        texname = texname .. "<" .. TEX_SAMPLE_FORMATS[class.kind] .. ">"
     elseif class.format then
         texname = texname .. ("<%s,%s>"):format(class.format, class.access)
     end
     return texname
 end
 
+---@class TextureDef: TypeDef
+---@field class string
+---@field array boolean
+---@field dimension string
+---@field format string
+---@field access ("read" | "write" | "read_write")?
+---@field multisampled boolean
+
 local function fix_image(registry, s)
     if s.inner then s = s.inner.Image end
+    -- deep_print(s)
+    -- error("eh!")
     local classname = next(s.class)
     local class = s.class[classname]
     local name = image_name(s, classname, class)
-    local dim = TEXTUREDIMS[s.dim]
-    local format = nil
-    if class.kind then
-        format = TEXCLASSES[class.kind]
-    elseif class.format then
-        format = class.format:lower()
-    end
+    local dim = TEX_DIM_NAMES[s.dim]
+    local format = (class.kind or class.format or "unknown"):lower()
+    if classname == "Depth" then format = "depth" end
+
     return Type{
         kind="texture",
         name=name,
@@ -208,7 +221,7 @@ local function fix_image(registry, s)
         array=s.arrayed,
         dimension=dim,
         format=format,
-        access=class.access,
+        access=TEX_ACCESS_NAMES[class.access] or class.access,
         multisampled=class.multi
     }
 end
@@ -586,6 +599,42 @@ function tests:parse_structs()
     assert(parsed.VertexInput, "VertexInput exists")
     assert(parsed.PrimeIndices, "PrimeIndices exists")
     assert(#utils.kv_pairs(parsed) == 2, "Only two things returned")
+end
+
+function tests:parse_textures()
+    local src = [[
+    @group(0) @binding(0)
+    var tex_1: texture_multisampled_2d<f32>;
+
+    @group(0) @binding(1)
+    var tex_2: texture_storage_2d<rgba8unorm, read_write>; 
+
+    @group(0) @binding(2)
+    var tex_3: texture_depth_2d;
+    ]]
+
+    local parsed = naga.parse(src)
+    local vars = parsed.vars
+
+    local streq = require("utils.deepeq").string_equal
+    local ty1 = vars.tex_1.ty
+    assert(streq(ty1.kind, "texture"))
+    ---@cast ty1 TextureDef
+    assert(streq(ty1.class, "sampled"))
+    assert(streq(ty1.format, "float"))
+
+    local ty2 = vars.tex_2.ty
+    assert(streq(ty2.kind, "texture"))
+    ---@cast ty2 TextureDef
+    assert(streq(ty2.class, "storage"))
+    assert(streq(ty2.format, "rgba8unorm"))
+    assert(streq(ty2.access, "read_write"))
+
+    local ty3 = vars.tex_3.ty
+    assert(streq(ty3.kind, "texture"))
+    ---@cast ty3 TextureDef
+    assert(streq(ty3.class, "depth"))
+    assert(streq(ty3.format, "depth"))
 end
 
 function tests:parse_bindgroups()

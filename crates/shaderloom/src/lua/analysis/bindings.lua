@@ -37,19 +37,27 @@ local bindings = {}
 --     },
 -- }
 
+-- D1 = 0,
+-- D2 = 1,
+-- D2Array = 2,
+-- Cube = 3,
+-- CubeArray = 4,
+-- D3 = 5,
+
 ---@class BindingType
----@field kind string
+---@field kind "buffer" | "sampler" | "texture" | "storage_texture" | "acceleration_structure"
 
 ---@class BufferBinding: BindingType
----@field buffer_type string
+---@field kind "uniform" | "storage"
 ---@field dynamic_offset boolean
+---@field read_only boolean?
 ---@field min_binding_size number?
 
 ---@class SamplerBinding: BindingType
----@field sampler_type string
+---@field kind "filtering" | "non_filtering" | "comparison"
 
 ---@class TextureBinding: BindingType
----@field sample_type string
+---@field sample_type "float" | "unfilterable_float" | "depth" | "sint" | "uint"
 ---@field view_dimension string
 ---@field multisampled boolean
 
