@@ -172,7 +172,7 @@ local TEX_SAMPLE_FORMATS = {
     Uint = "u32",
 }
 
-local TEX_ACCESS_NAMES = {
+local ACCESS_NAMES = {
     LOAD = "read",
     STORE = "write",
     ["LOAD | STORE"] = "read_write"
@@ -221,10 +221,13 @@ local function fix_image(registry, s)
         array=s.arrayed,
         dimension=dim,
         format=format,
-        access=TEX_ACCESS_NAMES[class.access] or class.access,
+        access=ACCESS_NAMES[class.access] or class.access,
         multisampled=class.multi
     }
 end
+
+---@class SamplerDef: TypeDef
+---@field comparison boolean
 
 local function fix_sampler(registry, s)
     if s.inner then s = s.inner.Sampler end
@@ -344,7 +347,7 @@ local function fix_and_register_var(registry, annotations, vars, bindgroups, ite
     local visibility = annotations.visibility or {}
     local space, access = nil, nil
     if type(item.space) == "string" then
-        space = item.space:lower()
+        space = item.space
     else
         space = next(item.space)
         access = item.space[space].access
@@ -355,8 +358,8 @@ local function fix_and_register_var(registry, annotations, vars, bindgroups, ite
     local var = {
         name = item.name,
         ty = ty,
-        space = space,
-        access = access,
+        space = space:lower(),
+        access = access and ACCESS_NAMES[access],
         binding = binding,
         visibility = visibility[item.name]
     }
@@ -611,6 +614,12 @@ function tests:parse_textures()
 
     @group(0) @binding(2)
     var tex_3: texture_depth_2d;
+
+    @group(0) @binding(3)
+    var samp_1: sampler;
+
+    @group(0) @binding(4)
+    var samp_2: sampler_comparison;
     ]]
 
     local parsed = naga.parse(src)
@@ -635,6 +644,38 @@ function tests:parse_textures()
     ---@cast ty3 TextureDef
     assert(streq(ty3.class, "depth"))
     assert(streq(ty3.format, "depth"))
+
+    local ty4 = vars.samp_1.ty
+    assert(streq(ty4.kind, "sampler"))
+    ---@cast ty4 SamplerDef
+    assert(ty4.comparison == false)
+
+    local ty5 = vars.samp_2.ty
+    assert(streq(ty5.kind, "sampler"))
+    ---@cast ty5 SamplerDef
+    assert(ty5.comparison == true)
+end
+
+function tests:parse_buffers()
+    local src = [[
+    struct TestUniforms {
+        @align(16) color0: vec4f,
+    }
+
+    @group(0) @binding(0) var<uniform> u1: TestUniforms;
+    @group(0) @binding(1) var<storage,read> u2: TestUniforms;
+    @group(0) @binding(2) var<storage,read_write> u3: TestUniforms;
+    ]]
+
+    local streq = require("utils.deepeq").string_equal
+    local parsed = naga.parse(src)
+    local vars = parsed.vars
+
+    assert(streq(vars.u1.space, "uniform"))
+    assert(streq(vars.u2.space, "storage"))
+    assert(streq(vars.u2.access, "read"))
+    assert(streq(vars.u3.space, "storage"))
+    assert(streq(vars.u3.access, "read_write"))
 end
 
 function tests:parse_bindgroups()
