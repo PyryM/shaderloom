@@ -106,10 +106,13 @@ end
 ---Produce a comparable signature of a type's memory layout if it exists
 ---@param ty TypeDef
 ---@return string | nil
-function unify.layout_signature(ty)
+function unify.layout_signature(ty, known)
+    if known and known[ty] then return known[ty] end
     local frags = {}
     if _layout_sig(frags, ty) then
-        return table.concat(frags)
+        local sig = table.concat(frags)
+        if known then known[ty] = sig end
+        return sig
     else
         return nil
     end
@@ -132,8 +135,9 @@ end
 function unify.gather(structs)
     local exemplars = {}
     local remapping = {}
+    local known = {}
     for _, struct in pairs(structs) do
-        local sig = unify.layout_signature(struct)
+        local sig = unify.layout_signature(struct, known)
         if sig then
             if not exemplars[sig] then 
                 exemplars[sig] = _shallow_copy_struct_type(struct)

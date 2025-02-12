@@ -3,6 +3,7 @@
 -- analyze bind groups
 
 local class = require "miniclass"
+local utils = require "utils.common"
 local bindings = {}
 
 -- pub struct BindGroupLayoutEntry {
@@ -46,6 +47,7 @@ local bindings = {}
 
 ---@class BindingType
 ---@field kind "buffer" | "sampler" | "texture" | "storage_texture" | "acceleration_structure"
+---@field signature string
 
 ---@class BufferBinding: BindingType
 ---@field space "uniform" | "storage"
@@ -74,6 +76,23 @@ local bindings = {}
 ---@field visibility Visibility
 ---@field ty BindingType
 ---@field count number?
+---@field signature string
+
+---@class BindGroupLayout
+---@field bindings BindGroupLayoutEntry[]
+---@field name string
+
+---@class UnifiedBindGroupLayouts
+---@field layouts BindGroupLayout[]
+---@field mapping table<table, BindGroupLayout>
+
+local function buffer_sig(space, readonly)
+    if space == "uniform" then
+        return "buffer<uniform>"
+    else
+        return ("buffer<%s,%s>"):format(space, (readonly and "read") or "readwrite")
+    end
+end
 
 ---@type table<string, fun(def: VarDef): BindingType>
 local BIND_DEFS = {
@@ -85,14 +104,16 @@ local BIND_DEFS = {
                 kind = "storage_texture",
                 access = ty.access,
                 format = ty.format,
-                view_dimension = ty.dimension
+                view_dimension = ty.dimension,
+                signature = ty.name,
             }
         else
             return {
                 kind = "texture",
                 format = ty.format,
                 view_dimension = ty.dimension,
-                multisampled = ty.multisampled
+                multisampled = ty.multisampled,
+                signature = ty.name,
             }
         end
     end,
@@ -101,11 +122,12 @@ local BIND_DEFS = {
         ---@cast ty SamplerDef
         return {
             kind="sampler",
-            sampler_kind=(ty.comparison and "comparison") or "filtering"
+            sampler_kind=(ty.comparison and "comparison") or "filtering",
+            signature = ty.name,
         }
     end,
     acceleration_structure = function(def)
-        return {kind="acceleration_structure"}
+        return {kind="acceleration_structure", signature="acceleration_structure"}
     end,
     binding_array = function(def)
         error("Binding arrays NYI!")
@@ -116,6 +138,7 @@ local BIND_DEFS = {
             space=def.space,
             dynamic_offset=false, -- ???
             read_only=(def.access=="read"),
+            signature=buffer_sig(def.space,def.access=="read")
         }
     end
 }
@@ -134,22 +157,77 @@ end
 ---@return BindGroupLayoutEntry?
 function bindings.infer_layout_entry(var)
     if not var.binding then return nil end
-    local def = BIND_DEFS[var.ty.kind] or BIND_DEFS.buffer
+    ---@type fun(def: VarDef): BindingType
+    local def = assert(BIND_DEFS[var.ty.kind] or BIND_DEFS.buffer, "Missing def!")
+    local ty = def(var)
     return {
         var=var,
         binding=var.binding.binding,
         visibility=var.visibility or {vertex=true, fragment=true, compute=true},
-        ty=def(var),
+        ty=ty,
+        signature=ty.signature,
         count=binding_count(var.ty)
     }
 end
 
----Produce a comparable string signature for a binding
----@param binding VarDef
----@return string|nil
-function bindings.binding_signature(binding)
-
+---Infer the layout of a bind group
+---@param bindgroup BindGroupInfo
+---@param name string
+---@return BindGroupLayout
+function bindings.infer_bind_group_layout(bindgroup, name)
+    ---@type BindGroupLayoutEntry[]
+    local group_bindings = {}
+    for _idx, bind_info in pairs(bindgroup.bindings) do
+        table.insert(assert(bindings.infer_layout_entry(bind_info)))
+    end
+    utils.sort_by_key(group_bindings, function(group) return group.binding end)
+    return {
+        name = name,
+        bindings = group_bindings
+    }
 end
+
+---Merge a bindgroup into a target eh
+---@param target BindGroupLayout
+---@param incoming BindGroupLayout
+function bindings.merge_layout(target, incoming)
+    print("Warning: just assuming target and incoming are the same!")
+end
+
+---Find bind groups across shaders
+---@param shaders ShaderDef[]
+---@return UnifiedBindGroupLayouts
+function bindings.unify_bind_groups(shaders)
+    local layouts = {}
+    local shared_layouts = {}
+    local mapping = {}
+    for shader_idx, shader in ipairs(shaders) do
+        local shader_name = shader.name or ("__shader_" .. shader_idx)
+        for group_idx, group in pairs(shader.bindgroups) do
+            if group.shared then
+                local groupname = assert(group.name, "Shared bindgroup must have explicit name!")
+                local layout = bindings.infer_bind_group_layout(group, groupname)
+                if shared_layouts[groupname] then
+                    bindings.merge_layout(shared_layouts[groupname], layout)
+                    mapping[group] = shared_layouts[groupname]
+                else
+                    shared_layouts[groupname] = layout
+                    table.insert(layouts, layout)
+                    mapping[group] = layout
+                end
+            else
+                -- simpler? case: just give the group a name that shouldn't collide
+                -- with anything and insert it
+                local groupname = ("%s_%s"):format(shader_name, group.name or ("_group_" .. group_idx))
+                local layout = bindings.infer_bind_group_layout(group, groupname)
+                table.insert(layouts, layout)
+                mapping[group] = layout
+            end
+        end
+    end
+    return {layouts=layouts, mapping=mapping}
+end
+
 
 local tests = {}
 bindings._tests = tests
