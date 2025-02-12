@@ -74,6 +74,24 @@ function m.emit_numpy_struct_dtype(ty)
     }
 end
 
+function m.build(options)
+    local raw = require "targets.raw"
+    local unify = require "analysis.unify"
+    local fileio = require "utils.fileio"
+    local shaders = raw.preprocess(options.shaders, options.include_dirs)
+    local params = utils.cascaded_table(options.env)
+    local config = options.config
+    local parsed = raw.validate(shaders)
+    local structs = unify.unify_host_shared_structs(parsed)
+    local bundle_filename = assert(config.bundle, "Must specify .bundle!"):with(params)
+    local frags = {}
+    for _, struct in ipairs(structs.structs) do
+        local dtype = m.emit_numpy_struct_dtype(struct)
+        table.insert(frags, dtype)
+    end
+    fileio.write(bundle_filename, table.concat(frags, "\n"))
+end
+
 local tests = {}
 m._tests = tests
 

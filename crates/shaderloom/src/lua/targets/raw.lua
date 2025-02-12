@@ -31,7 +31,8 @@ end
 
 function raw_target.validate(shaders)
     local had_errors = false
-    for _, shader in ipairs(shaders) do
+    local parsed_shaders = {}
+    for idx, shader in ipairs(shaders) do
         local parsed, errs = naga.parse(shader, true)
         if errs then
             log.error(("Error in '${name}' (@'${path}'):??"):with(shader))
@@ -39,12 +40,14 @@ function raw_target.validate(shaders)
             log.divider()
             had_errors = true
         end
+        parsed_shaders[idx] = parsed
     end
     if had_errors then
         error("Errors in shaders.") 
     else
         log.info("All shaders passed validation.")
     end
+    return parsed_shaders
 end
 
 function raw_target.create_bundle(options, shaders, env)

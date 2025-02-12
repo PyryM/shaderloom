@@ -228,7 +228,6 @@ function bindings.unify_bind_groups(shaders)
     return {layouts=layouts, mapping=mapping}
 end
 
-
 local tests = {}
 bindings._tests = tests
 

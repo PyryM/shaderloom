@@ -5,6 +5,7 @@
 
 local naga = require "analysis.naga"
 local utils = require "utils.common"
+local bindings = require "analysis.bindings"
 local unify = {}
 
 ---@class UniqueStructMapping
@@ -55,6 +56,7 @@ function unify.find_shared_structs(shader, target)
 end
 
 function unify.unify_bind_groups(shaders)
+    return bindings.unify_bind_groups(shaders)
 end
 
 local NON_CONCRETE_TYPES = utils.set{"texture", "sampler"}
