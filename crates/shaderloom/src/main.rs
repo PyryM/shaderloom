@@ -28,11 +28,11 @@ enum Command {
     },
     /// Directly invoke a lua module's main function
     Run {
-        /// Raw argument to pass to module
-        #[arg(short, long)]
-        arg: Option<String>,
         /// Name of Lua module
         module: String,
+
+        /// Raw argument to pass to module
+        arg: Option<String>,
     },
 }
 

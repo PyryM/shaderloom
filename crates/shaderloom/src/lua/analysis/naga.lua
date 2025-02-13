@@ -386,6 +386,10 @@ end
 ---@field arguments FunctionArg[]
 ---@field result FunctionArg?
 
+---Fix a function
+---@param registry any
+---@param func any
+---@return FunctionDef
 local function fix_function(registry, func)
     return {
         arguments = utils.map(func.arguments, function(arg)
@@ -401,7 +405,7 @@ end
 ---@field name string
 ---@field stage string
 ---@field workgroup_size [number, number, number]
----@field func any
+---@field func FunctionDef
 
 local function fix_entry_point(registry, target, entry)
     local stage = entry.stage:lower()
