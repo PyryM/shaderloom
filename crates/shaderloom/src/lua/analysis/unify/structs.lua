@@ -5,8 +5,7 @@
 
 local naga = require "analysis.naga"
 local utils = require "utils.common"
-local bindings = require "analysis.bindings"
-local unify = {}
+local struct_unify = {}
 
 ---@class UniqueStructMapping
 ---@field structs StructDef[]
@@ -15,7 +14,7 @@ local unify = {}
 ---Unwrap an array or atomic into its inner type
 ---@param ty TypeDef
 ---@return TypeDef
-function unify.unwrap(ty)
+local function unwrap(ty)
     if ty.kind == "atomic" or ty.kind == "array" then
         ---@cast ty AtomicDef|ArrayDef
         return ty.inner
@@ -29,7 +28,7 @@ end
 ---@param seen table<string, boolean>
 ---@param ty TypeDef
 local function _find_shared_structs(target, seen, ty)
-    local inner = unify.unwrap(ty)
+    local inner = unwrap(ty)
     if seen[inner.name] then return end
     if inner.kind ~= "struct" then return end
     ---@cast inner StructDef
@@ -47,16 +46,12 @@ end
 ---@param shader ShaderDef
 ---@param target StructDef[]?
 ---@return StructDef[]
-function unify.find_shared_structs(shader, target)
+function struct_unify.find_shared_structs(shader, target)
     local structs, seen = target or {}, {}
     for _, var in pairs(shader.vars) do
         _find_shared_structs(structs, seen, var.ty)
     end
     return structs
-end
-
-function unify.unify_bind_groups(shaders)
-    return bindings.unify_bind_groups(shaders)
 end
 
 local NON_CONCRETE_TYPES = utils.set{"texture", "sampler"}
@@ -108,7 +103,7 @@ end
 ---Produce a comparable signature of a type's memory layout if it exists
 ---@param ty TypeDef
 ---@return string | nil
-function unify.layout_signature(ty, known)
+function struct_unify.layout_signature(ty, known)
     if known and known[ty] then return known[ty] end
     local frags = {}
     if _layout_sig(frags, ty) then
@@ -134,12 +129,12 @@ end
 ---@param structs table<any, StructDef>
 ---@return table<StructDef, StructDef>
 ---@return table<string, StructDef>
-function unify.gather(structs)
+function struct_unify.gather(structs)
     local exemplars = {}
     local remapping = {}
     local known = {}
     for _, struct in pairs(structs) do
-        local sig = unify.layout_signature(struct, known)
+        local sig = struct_unify.layout_signature(struct, known)
         if sig then
             if not exemplars[sig] then 
                 exemplars[sig] = _shallow_copy_struct_type(struct)
@@ -153,7 +148,7 @@ end
 ---Assign names to get rid of name collisions
 ---Struct names are modified *in place*
 ---@param exemplars table<string, StructDef>
-function unify.assign_names(exemplars)
+function struct_unify.assign_names(exemplars)
     local sorted_exemplars = utils.kv_pairs(exemplars)
     utils.sort_by_key(sorted_exemplars, function(item) return item[1] end)
     local name_counts = utils.default_table(0)
@@ -212,13 +207,13 @@ end
 ---Find and unify structs shared with the host system
 ---@param shaders ShaderDef[]
 ---@return UniqueStructMapping
-function unify.unify_host_shared_structs(shaders)
+function struct_unify.unify_host_shared_structs(shaders)
     local structs = {}
     for _, shader in ipairs(shaders) do
-        unify.find_shared_structs(shader, structs)
+        struct_unify.find_shared_structs(shader, structs)
     end
-    local mapping, exemplars = unify.gather(structs)
-    unify.assign_names(exemplars)
+    local mapping, exemplars = struct_unify.gather(structs)
+    struct_unify.assign_names(exemplars)
 
     local out_list = {}
     local seen = {}
@@ -234,7 +229,7 @@ function unify.unify_host_shared_structs(shaders)
 end
 
 local tests = {}
-unify._tests = tests
+struct_unify._tests = tests
 
 function tests.renaming()
     local src1 = [[
@@ -265,20 +260,19 @@ function tests.renaming()
     @group(0) @binding(0) var<uniform> uniforms: VertexStruct;
     ]]
     local deepprint = require "utils.deepprint"
-    local naga = require "analysis.naga"
     local structs = {}
     local p1 = naga.parse(src1)
     local p2 = naga.parse(src2)
-    unify.find_shared_structs(p1, structs)
-    unify.find_shared_structs(p2, structs)
+    struct_unify.find_shared_structs(p1, structs)
+    struct_unify.find_shared_structs(p2, structs)
     assert(#structs == 4, "Wrong number of structs?")
     assert(
         p1.types.VertexStruct ~= p2.types.VertexStruct, 
         "Parsed structs should be distinct!"
     )
 
-    local mapping, exemplars = unify.gather(structs)
-    unify.assign_names(exemplars)
+    local mapping, exemplars = struct_unify.gather(structs)
+    struct_unify.assign_names(exemplars)
     local exemplar_names = utils.dict_extract(exemplars, function(_, v)
         return v.name
     end)
@@ -340,7 +334,7 @@ function tests.unification()
     local p1 = naga.parse(src1)
     local p2 = naga.parse(src2)
 
-    local unified = unify.unify_host_shared_structs({p1, p2})
+    local unified = struct_unify.unify_host_shared_structs({p1, p2})
 
     assert(#unified.structs == 5, "Wrong number of structs?")
     local struct_names = utils.map(unified.structs, function(v)
@@ -379,15 +373,14 @@ function tests.layout_signatures()
         data: array<u32>
     } // this is used as both input and output for convenience
     ]]
-    local naga = require "analysis.naga"
     local parsed = naga.parse_structs(src)
     local streq = require("utils.deepeq").string_equal
     --assert(unify.layout_signature(parsed.VertexInput) == nil)
-    print(unify.layout_signature(parsed.PrimeIndices))
+    print(struct_unify.layout_signature(parsed.PrimeIndices))
     assert(streq(
-        unify.layout_signature(parsed.VertexStruct), 
+        struct_unify.layout_signature(parsed.VertexStruct), 
         '{{position,0,vec4<f32>}}'
     ))
 end
 
-return unify
+return struct_unify
