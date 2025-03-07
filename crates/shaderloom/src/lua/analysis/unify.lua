@@ -6,13 +6,9 @@ local utils = require "utils.common"
 
 local unify = {}
 
-function unify.unify_host_shared_structs(shaders)
-    return struct_unify.unify_host_shared_structs(shaders)
-end
-
-function unify.unify_bind_groups(shaders)
-    return bind_unify.unify_bind_groups(shaders)
-end
+unify.unify_host_shared_structs = struct_unify.unify_host_shared_structs
+unify.unify_bind_groups = bind_unify.unify_bind_groups
+unify.find_vertex_layouts = vertex_unify.find_vertex_layouts
 
 function unify.unify_vertex_layouts(shaders)
     error("NYI!")
