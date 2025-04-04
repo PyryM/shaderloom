@@ -22,7 +22,7 @@ function loom:parse_wgsl(source) end
 
 ---@param source string
 ---@param flags number?
----@return any
+---@return any|nil
 ---@return string|nil
 function loom:parse_and_validate_wgsl(source, flags) end
 

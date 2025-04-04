@@ -3,10 +3,10 @@ use anyhow::Result;
 use mlua::LuaSerdeExt;
 use serde::Serialize;
 
+use naga::Module;
 use naga::front::wgsl;
 use naga::valid::Capabilities as Caps;
 use naga::valid::{ValidationFlags, Validator};
-use naga::Module;
 
 #[derive(Serialize, Clone)]
 pub struct LuaWGSLModule {
@@ -25,8 +25,11 @@ pub fn parse_wgsl(src: &str) -> Result<LuaWGSLModule> {
     Ok(LuaWGSLModule { module })
 }
 
-pub fn parse_and_validate_wgsl(src: &str, flags: Option<u8>) -> Result<(Module, Option<String>)> {
-    let module = wgsl::parse_str(src)?;
+pub fn parse_and_validate_wgsl(src: &str, flags: Option<u8>) -> (Option<Module>, Option<String>) {
+    let module = match wgsl::parse_str(src) {
+        Ok(m) => m,
+        Err(e) => return (None, Some(e.emit_to_string(src))),
+    };
     // According to the Naga CLI, these capabilities are missing from wgsl
     let caps = Caps::all() & !(Caps::CLIP_DISTANCE | Caps::CULL_DISTANCE);
     let flags = match flags {
@@ -38,5 +41,5 @@ pub fn parse_and_validate_wgsl(src: &str, flags: Option<u8>) -> Result<(Module, 
         Err(e) => Some(e.emit_to_string(src)),
     };
 
-    Ok((module, err_info))
+    (Some(module), err_info)
 }

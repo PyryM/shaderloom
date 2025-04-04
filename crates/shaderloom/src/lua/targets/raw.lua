@@ -39,8 +39,9 @@ function raw_target.validate(shaders)
             log.multiline(errs)
             log.divider()
             had_errors = true
+        else
+            parsed_shaders[idx] = parsed
         end
-        parsed_shaders[idx] = parsed
     end
     if had_errors then
         error("Errors in shaders.") 

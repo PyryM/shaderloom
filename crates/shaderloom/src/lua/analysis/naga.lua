@@ -467,7 +467,7 @@ end
 ---Parse WGSL source, optionally validating
 ---@param shader string | PreprocessorOutput
 ---@param validate boolean?
----@return ShaderDef
+---@return ShaderDef|nil
 ---@return string|nil
 function naga.parse(shader, validate)
     local source, annotations
@@ -484,7 +484,7 @@ function naga.parse(shader, validate)
     else
         parsed = loom:parse_wgsl(source)
     end
-    return fixup(parsed, annotations), validation_errors
+    return parsed and fixup(parsed, annotations), validation_errors
 end
 
 ---Parse WGSL source, returning only the struct definitions
