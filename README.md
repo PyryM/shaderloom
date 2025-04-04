@@ -1,2 +1,6 @@
 # shaderloom
-todo
+
+Installation:
+```
+cargo install --path crates/shaderloom/
+```
