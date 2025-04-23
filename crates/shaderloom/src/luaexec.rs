@@ -88,7 +88,11 @@ impl LuaExecutor {
         let args = self.lua.create_table()?;
 
         if let Some(p) = std::path::Path::new(infile).parent() {
-            args.set("SCRIPTDIR", p.to_string_lossy())?;
+            let mut p = p.to_string_lossy().into_owned();
+            if p.is_empty() {
+                p = ".".into();
+            }
+            args.set("SCRIPTDIR", p)?;
         }
         args.set("SCRIPTPATH", infile)?;
 
