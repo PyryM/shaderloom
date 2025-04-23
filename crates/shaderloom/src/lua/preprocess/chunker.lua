@@ -52,12 +52,12 @@ function chunker.translate_source(src)
     local frags = {}
 
     while cursor <= src_len do
-        local pre_line = src:match("^%s*#([^\n]*)\n", cursor)
-        if pre_line then
+        local match_start, match_end, pre_line = src:find("^%s*#([^\n]*)\n", cursor)
+        if match_start then
             -- this is a preprocessor line `# ...`
             -- preprocessor lines are inserted verbatim
-            table.insert(frags, pre_line) 
-            cursor = (src:find("\n", cursor) or src_len) + 1
+            table.insert(frags, pre_line)
+            cursor = match_end + 1
         else
             -- not a preprocessor line, so find the next preprocessor line
             local start = cursor

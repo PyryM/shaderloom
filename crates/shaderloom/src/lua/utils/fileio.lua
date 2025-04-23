@@ -28,7 +28,7 @@ function fileio.read(filename)
 end
 
 function fileio.write(filename, data)
-    local dest = io.open(filename, "wb")
+    local dest = assert(io.open(filename, "wb"), "Failed to open output file!")
     dest:write(data)
     dest:close()
 end

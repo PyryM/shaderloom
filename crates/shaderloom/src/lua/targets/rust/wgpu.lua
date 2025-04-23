@@ -70,21 +70,35 @@ function m.emit_struct_def(ty)
     }
 end
 
+function m.generate_struct_defs(structs)
+    local frags = {"use bytemuck::{Pod, Zeroable};", ""}
+    for _, struct in ipairs(structs.structs) do
+        table.insert(frags, m.emit_struct_def(struct))
+    end
+    return table.concat(frags, "\n")
+end
+
 function m.build(options)
     local raw = require "targets.raw"
     local unify = require "analysis.unify"
     local fileio = require "utils.fileio"
     local shaders = raw.preprocess(options.shaders, options.include_dirs)
-    local params = utils.cascaded_table(options.env)
     local config = options.config
-    local parsed = raw.validate(shaders)
-    local structs = unify.unify_host_shared_structs(parsed)
-    local bundle_filename = assert(config.bundle, "Must specify .bundle!"):with(params)
-    local frags = {"use bytemuck::{Pod, Zeroable};", ""}
-    for _, struct in ipairs(structs.structs) do
-        table.insert(frags, m.emit_struct_def(struct))
+    local parsed
+    if config.validate or config.struct_definitions then
+        parsed = raw.validate(shaders)
     end
-    fileio.write(bundle_filename, table.concat(frags, "\n"))
+    if config.struct_definitions then
+        local structs = unify.unify_host_shared_structs(parsed)
+        local defs = m.generate_struct_defs(structs)
+        fileio.write(config.struct_definitions, defs)
+    end
+    if config.bundle then
+        raw.emit_bundle(config.bundle, shaders, options.env)
+    end
+    if config.loose_files then
+        raw.emit_loose_shaders(config.loose_files, shaders, options.env)
+    end
 end
 
 local tests = {}

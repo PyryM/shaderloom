@@ -137,7 +137,12 @@ end
 
 function Preprocessor:process_source(source, name)
     local translated = chunker.translate_source(source)
-    local chunk = assert(loadstring_env(translated, name, self.env))
+    local chunk, err = loadstring_env(translated, name, self.env)
+    if not chunk then
+        print("BAD PREPROC:")
+        print(translated)
+        error("Preprocessor error in " .. name .. ": " .. tostring(err))
+    end
     chunk()
 end
 
@@ -214,6 +219,22 @@ function tests.only_preprocessor()
         # ]]
     }
     local expected = "asdf"
+    local translated = test_proc(files).source
+    assert(eq(expected, translated))
+end
+
+
+function tests.double_emit_regression()
+    local dedent = require("utils.stringmanip").dedent
+    local eq = require("utils.deepeq").string_equal
+    local files = {
+        MAIN=dedent[[
+        // Foo
+
+        # emit_raw "bar"
+        # ]]
+    }
+    local expected = "// Foo\nbar"
     local translated = test_proc(files).source
     assert(eq(expected, translated))
 end
