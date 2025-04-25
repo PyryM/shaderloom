@@ -38,12 +38,18 @@ end
 local STRUCT_TEMPLATE = [[
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct ${name} {
-${fields}
+pub struct ${NAME} {
+${FIELDS}
 }
 ]]
 
-function m.emit_struct_def(ty)
+local STRUCT_FILE_TEMPLATE = [[
+use bytemuck::{Pod, Zeroable};
+
+${STRUCTS}
+]]
+
+function m.emit_struct_def(ty, template)
     local fields = {}
     local cur_offset = 0
     local pad_id = 0
@@ -64,24 +70,31 @@ function m.emit_struct_def(ty)
         local npad = ty.size - cur_offset
         table.insert(fields, ("    pub _pad_%s: [u8; %d],"):format(pad_id, npad))
     end
-    return STRUCT_TEMPLATE:with{
-        name = ty.name,
-        fields = table.concat(fields, "\n"),
+    return template:with{
+        NAME = ty.name,
+        FIELDS = table.concat(fields, "\n"),
     }
 end
 
-function m.generate_struct_defs(structs)
-    local frags = {"use bytemuck::{Pod, Zeroable};", ""}
-    for _, struct in ipairs(structs.structs) do
-        table.insert(frags, m.emit_struct_def(struct))
+function m.write_struct_defs(options, structs, env)
+    if type(options) == 'string' then
+        options = {output = options}
     end
-    return table.concat(frags, "\n")
+
+    local fileio = require "utils.fileio"
+    local frags = {}
+    for _, struct in ipairs(structs.structs) do
+        table.insert(frags, m.emit_struct_def(struct, options.struct_template or STRUCT_TEMPLATE))
+    end
+    local struct_str = table.concat(frags, "\n")
+    local body = (options.file_template or STRUCT_FILE_TEMPLATE):with{STRUCTS=struct_str}
+
+    fileio.write(options.output, body)
 end
 
 function m.build(options)
     local raw = require "targets.raw"
     local unify = require "analysis.unify"
-    local fileio = require "utils.fileio"
     local shaders = raw.preprocess(options.shaders, options.include_dirs)
     local config = options.config
     local parsed
@@ -90,8 +103,7 @@ function m.build(options)
     end
     if config.struct_definitions then
         local structs = unify.unify_host_shared_structs(parsed)
-        local defs = m.generate_struct_defs(structs)
-        fileio.write(config.struct_definitions, defs)
+        m.write_struct_defs(config.struct_definitions, structs, options.env)
     end
     if config.bundle then
         raw.emit_bundle(config.bundle, shaders, options.env)
