@@ -19,16 +19,15 @@ local function handle_source(src, frags)
     local src_len = #src
     while cursor <= src_len do
         local start = cursor
-        cursor = src:find("${{", cursor)
-        if cursor then
-            local subssrc = src:sub(start, cursor-1)
-            if #subssrc > 0 then
-                emit_raw(frags, subssrc)
+        local macro_start, macro_end, macro_expr = src:find("$(%b{})", cursor)
+        if macro_start then
+            if macro_start > start then
+                -- emit the source up to the start of the macro
+                emit_raw(frags, src:sub(start, macro_start-1))
             end
-            local macro_end = assert(src:find("}}", cursor+3), "Unclosed macro!")
-            local macro_src = src:sub(cursor+3, macro_end-1)
-            emit(frags, macro_src)
-            cursor = macro_end + 2
+            -- strip {} surrounding macro expression
+            emit(frags, macro_expr:sub(2, #macro_expr-1))
+            cursor = macro_end + 1
         else -- no interpolations, emit remainder of source    
             local subssrc = src:sub(start, src_len)
             emit_raw(frags, subssrc)

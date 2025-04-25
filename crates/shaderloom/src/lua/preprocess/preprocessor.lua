@@ -247,7 +247,7 @@ function tests.inline_translation()
         # function one() 
         #   return 1
         # end
-        @compute @workgroup_size(${{one()}})
+        @compute @workgroup_size(${one()})
         #-- a preprocessor comment
         fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             v_indices.data[global_id.x] = collatz_iterations(v_indices.data[global_id.x]);
@@ -328,7 +328,7 @@ function tests.bindgroup_annotation()
         var<storage, read_write > v_ehhhh_32 : array<f32>;
         # bindgroup "uniforms"
         # FOOBAR = 7;
-        @group(${{FOOBAR}}) @binding(3) 
+        @group(${FOOBAR}) @binding(3) 
         var<storage, read_write > v_ehhhh_32 : array<f32>;
         ]],
     }
