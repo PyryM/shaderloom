@@ -159,6 +159,10 @@ function m.write_struct_defs(options, structs, env)
         local rstruct = m.prepare_struct(options, struct)
         local formatted = m.format_rust_struct(rstruct, options.struct_template or STRUCT_TEMPLATE)
         table.insert(frags, formatted)
+        if options.struct_impl then
+            local impl = assert(options.struct_impl(rstruct, struct), "struct_impl must return a string!")
+            table.insert(frags, impl)
+        end
     end
     local struct_str = table.concat(frags, "\n")
     local body = (options.file_template or STRUCT_FILE_TEMPLATE):with{STRUCTS=struct_str}
