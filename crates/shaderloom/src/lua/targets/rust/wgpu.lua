@@ -36,9 +36,8 @@ function m.rust_typename(ty)
 end
 
 local STRUCT_TEMPLATE = [[
-#[derive(Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct ${NAME} {
+${HEADER}
+${VISIBILITY} struct ${NAME} {
 ${FIELDS}
 }
 ]]
@@ -49,31 +48,104 @@ use bytemuck::{Pod, Zeroable};
 ${STRUCTS}
 ]]
 
-function m.emit_struct_def(ty, template)
-    local fields = {}
-    local cur_offset = 0
-    local pad_id = 0
-    for _, member in ipairs(ty.members) do
-        local name = member.name
-        local tyname = m.rust_typename(member.ty)
-        local tysize = member.ty.size
-        local offset = member.offset
-        if cur_offset < offset then
-            local npad = offset - cur_offset
-            table.insert(fields, ("    pub _pad_%s: [u8; %d],"):format(pad_id, npad))
-            pad_id = pad_id + 1
+---@class RustStructMember
+---@field name string
+---@field visibility string?
+---@field comment string?
+---@field derive string?
+---@field ty TypeDef?
+---@field tyname string
+---@field is_padding boolean
+
+---@class RustStruct
+---@field name string
+---@field derive string?
+---@field comment string?
+---@field repr string?
+---@field visibility string?
+---@field header string[]?
+---@field fields RustStructMember[]
+
+---@param rstruct RustStruct
+---@param template string
+---@return string
+function m.format_rust_struct(rstruct, template)
+    local field_frags = {}
+    for _, field in ipairs(rstruct.fields) do
+        if field.comment then
+            table.insert(field_frags, "    " .. field.comment)
         end
-        table.insert(fields, ("    pub %s: %s,"):format(name, tyname))
-        cur_offset = offset + tysize
+        if field.derive then
+            table.insert(field_frags, "    " .. field.derive)
+        end
+        local vis = field.visibility or "pub"
+        table.insert(field_frags, ("    %s %s: %s,"):format(vis, field.name, field.tyname))
     end
-    if cur_offset < ty.size then
-        local npad = ty.size - cur_offset
-        table.insert(fields, ("    pub _pad_%s: [u8; %d],"):format(pad_id, npad))
+    local header = rstruct.header or {}
+    if rstruct.comment then
+        table.insert(header, rstruct.comment)
+    end
+    if rstruct.derive then
+        table.insert(header, rstruct.derive)
+    end
+    if rstruct.repr then
+        table.insert(header, rstruct.repr)
     end
     return template:with{
-        NAME = ty.name,
-        FIELDS = table.concat(fields, "\n"),
+        HEADER = table.concat(header, "\n"),
+        VISIBILITY = rstruct.visibility or "pub",
+        NAME = rstruct.name,
+        FIELDS = table.concat(field_frags, "\n"),
     }
+end
+
+function m.prepare_struct(options, ty)
+    ---@type RustStructMember[]
+    local fields = {}
+    local function add_field(field)
+        if options.field_decorator then
+            field = options.field_decorator(field, ty) or field
+        end
+        table.insert(fields, field)
+    end
+
+    local pad_id = 0
+    local cur_offset = 0
+    local function pad_to(target)
+        local npad = target - cur_offset
+        if npad <= 0 then return end
+        cur_offset = target
+        add_field{
+            name=("_pad_%s"):format(pad_id),
+            tyname=("[u8; %d]"):format(npad),
+            is_padding=true
+        }
+        pad_id = pad_id + 1
+    end
+
+    for _, member in ipairs(ty.members) do
+        local tysize = member.ty.size
+        local offset = member.offset
+        pad_to(offset)
+        add_field{
+            name=member.name,
+            ty=member.ty,
+            tyname=m.rust_typename(member.ty)
+        }
+        cur_offset = offset + tysize
+    end
+    pad_to(ty.size)
+    local rstruct = {
+        name=ty.name,
+        ty=ty,
+        derive="#[derive(Copy, Clone, Pod, Zeroable)]",
+        repr="#[repr(C)]",
+        fields=fields
+    }
+    if options.struct_decorator then
+        rstruct = options.struct_decorator(rstruct) or rstruct
+    end
+    return rstruct
 end
 
 function m.write_struct_defs(options, structs, env)
@@ -84,12 +156,18 @@ function m.write_struct_defs(options, structs, env)
     local fileio = require "utils.fileio"
     local frags = {}
     for _, struct in ipairs(structs.structs) do
-        table.insert(frags, m.emit_struct_def(struct, options.struct_template or STRUCT_TEMPLATE))
+        local rstruct = m.prepare_struct(options, struct)
+        local formatted = m.format_rust_struct(rstruct, options.struct_template or STRUCT_TEMPLATE)
+        table.insert(frags, formatted)
+        if options.struct_impl then
+            local impl = assert(options.struct_impl(rstruct, struct), "struct_impl must return a string!")
+            table.insert(frags, impl)
+        end
     end
     local struct_str = table.concat(frags, "\n")
     local body = (options.file_template or STRUCT_FILE_TEMPLATE):with{STRUCTS=struct_str}
 
-    fileio.write(options.output, body)
+    fileio.write(options.output:with(env), body)
 end
 
 function m.build(options)
