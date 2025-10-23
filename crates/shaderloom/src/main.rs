@@ -1,10 +1,10 @@
-mod globutils;
-mod luaexec;
-mod naga_parse;
+pub mod globutils;
+pub mod luaexec;
+pub mod naga_parse;
 
 use clap::{Parser, Subcommand};
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use luaexec::LuaExecutor;
 
 /// shaderloom: a WGSL preprocessor, validator, bundler, boilerplate-generator
