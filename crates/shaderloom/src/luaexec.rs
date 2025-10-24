@@ -1,5 +1,5 @@
 use crate::globutils::glob_items;
-use crate::naga_parse::{parse_and_validate_wgsl, parse_wgsl, LuaWGSLModule};
+use crate::naga_parse::{LuaWGSLModule, parse_and_validate_wgsl, parse_wgsl};
 use anyhow::Result;
 use mlua::{Function, Lua, LuaSerdeExt, Table, UserData};
 

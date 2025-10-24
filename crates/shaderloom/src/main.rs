@@ -4,7 +4,7 @@ pub mod naga_parse;
 
 use clap::{Parser, Subcommand};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use luaexec::LuaExecutor;
 
 /// shaderloom: a WGSL preprocessor, validator, bundler, boilerplate-generator

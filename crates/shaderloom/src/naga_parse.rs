@@ -3,10 +3,10 @@ use anyhow::Result;
 use mlua::LuaSerdeExt;
 use serde::Serialize;
 
+use naga::Module;
 use naga::front::wgsl;
 use naga::valid::Capabilities as Caps;
 use naga::valid::{ValidationFlags, Validator};
-use naga::Module;
 
 #[derive(Serialize, Clone)]
 pub struct LuaWGSLModule {
