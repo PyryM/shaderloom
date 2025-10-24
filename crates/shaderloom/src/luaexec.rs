@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::globutils::glob_items;
 use crate::naga_parse::{LuaWGSLModule, parse_and_validate_wgsl, parse_wgsl};
 use anyhow::Result;
@@ -84,10 +86,11 @@ impl LuaExecutor {
         Ok(())
     }
 
-    pub fn run_script(&self, infile: &str) -> Result<()> {
+    pub fn run_script(&self, infile: impl AsRef<Path>) -> Result<()> {
         let args = self.lua.create_table()?;
+        let infile = infile.as_ref();
 
-        if let Some(p) = std::path::Path::new(infile).parent() {
+        if let Some(p) = infile.parent() {
             let mut p = p.to_string_lossy().into_owned();
             if p.is_empty() {
                 p = ".".into();

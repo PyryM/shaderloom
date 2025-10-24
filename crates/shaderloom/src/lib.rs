@@ -32,23 +32,8 @@ impl Shaderloom {
     /// # Arguments
     ///
     /// * `path` - Path to the loom.lua configuration file
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use shaderloom::Shaderloom;
-    ///
-    /// let shaderloom = Shaderloom::new();
-    /// shaderloom.build_from_file("shaders/loom.lua")?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    pub fn build_from_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let path = path.as_ref();
-        let path_str = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Path is not valid UTF-8: {:?}", path))?;
-
-        self.executor.run_script(path_str)
+    pub fn build_from_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        self.executor.run_script(path)
     }
 
     /// Run a specific Lua module with an optional argument.
@@ -59,16 +44,6 @@ impl Shaderloom {
     ///
     /// * `module` - Name of the Lua module to run
     /// * `arg` - Optional string argument to pass to the module
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use shaderloom::Shaderloom;
-    ///
-    /// let shaderloom = Shaderloom::new();
-    /// shaderloom.run_module("some.module", Some("argument".to_string()))?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
     pub fn run_module(&self, module: &str, arg: Option<String>) -> Result<()> {
         self.executor.run_module(module, arg)
     }
