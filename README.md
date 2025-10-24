@@ -1,6 +1,6 @@
 # shaderloom
 
-A WGSL shader preprocessor, validator, bundler, and boilerplate generator.
+Shaderloom is a WGSL shader preprocessor, validator, bundler, and boilerplate generator. It can manage includes and build-time logic as pure Lua.
 
 ## Usage as a Command Line Tool
 
@@ -21,37 +21,17 @@ shaderloom build some/path/loom.lua
 
 ## Usage as a Rust Library
 
-Add shaderloom as a build dependency to your `Cargo.toml`:
+You can add shaderloom to your `build.rs`. First add shaderloom as a build dependency to your `Cargo.toml`:
+
 
 ```toml
 [build-dependencies] 
-shaderloom = { path = "path/to/shaderloom/crates/shaderloom" }
+shaderloom = { git = "https://github.com/PyryM/shaderloom",
+               rev = "4a04046d1c031e827ef894df8b5fc7bab0bb4a6a" }
 ```
 
-### Basic Usage
-
+Then in `build.rs`:
 ```rust
-use shaderloom::Shaderloom;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let shaderloom = Shaderloom::new();
-    
-    // Build shaders from a loom.lua configuration file
-    shaderloom.build_from_file("shaders/loom.lua")?;
-    
-    // Or run a specific Lua module
-    shaderloom.run_module("some.module", Some("argument".to_string()))?;
-    
-    Ok(())
-}
-```
-
-### Usage in build.rs
-
-This is particularly useful for integrating shader processing into your build pipeline:
-
-```rust
-// build.rs
 use shaderloom::Shaderloom;
 
 fn main() {
