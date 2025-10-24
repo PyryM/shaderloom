@@ -1,41 +1,3 @@
-//! # Shaderloom
-//!
-//! A WGSL shader preprocessor, validator, bundler, and boilerplate generator.
-//!
-//! This crate provides both a command-line interface and a library interface
-//! for processing WGSL shaders using Lua scripts.
-//!
-//! ## Usage as a library
-//!
-//! ```rust,no_run
-//! use shaderloom::Shaderloom;
-//! use std::path::Path;
-//!
-//! // Build shaders from a loom.lua configuration file
-//! let shaderloom = Shaderloom::new();
-//! shaderloom.build_from_file("path/to/loom.lua")?;
-//!
-//! // Or run a specific Lua module
-//! shaderloom.run_module("some.module", Some("argument".to_string()))?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
-//!
-//! ## Usage in build.rs
-//!
-//! ```rust,no_run
-//! // In your build.rs file:
-//! use shaderloom::Shaderloom;
-//!
-//! fn main() {
-//!     let shaderloom = Shaderloom::new();
-//!     shaderloom.build_from_file("shaders/loom.lua")
-//!         .expect("Failed to build shaders");
-//!     
-//!     // Tell Cargo to rerun if shader files change
-//!     println!("cargo:rerun-if-changed=shaders/");
-//! }
-//! ```
-
 pub mod globutils;
 pub mod luaexec;
 pub mod naga_parse;
@@ -139,8 +101,8 @@ impl Default for Shaderloom {
 }
 
 // Re-export related types for advanced users
-pub use globutils::{glob_items, GlobItem};
-pub use naga_parse::{parse_and_validate_wgsl, parse_wgsl, LuaWGSLModule};
+pub use globutils::{GlobItem, glob_items};
+pub use naga_parse::{LuaWGSLModule, parse_and_validate_wgsl, parse_wgsl};
 
 #[cfg(test)]
 mod tests {
