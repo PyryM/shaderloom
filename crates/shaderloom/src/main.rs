@@ -1,9 +1,5 @@
-// pub mod globutils;
-// pub mod luaexec;
-// pub mod naga_parse;
-
-use shaderloom::luaexec;
 use clap::{Parser, Subcommand};
+use shaderloom::luaexec;
 
 use anyhow::{Result, anyhow};
 use luaexec::LuaExecutor;

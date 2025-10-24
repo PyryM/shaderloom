@@ -178,4 +178,3 @@ mod tests {
         LuaExecutor::new().run_tests("tests.dev").unwrap();
     }
 }
-
