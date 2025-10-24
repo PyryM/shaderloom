@@ -4,7 +4,6 @@ pub mod naga_parse;
 
 use anyhow::Result;
 use luaexec::LuaExecutor;
-use mlua::Table;
 use std::path::Path;
 
 /// Main interface for the Shaderloom shader preprocessor.
@@ -46,18 +45,6 @@ impl Shaderloom {
     /// * `arg` - Optional string argument to pass to the module
     pub fn run_module(&self, module: &str, arg: Option<String>) -> Result<()> {
         self.executor.run_module(module, arg)
-    }
-
-    /// Update the configuration with a Lua table.
-    ///
-    /// This allows you to programmatically set configuration values that would
-    /// normally be set in the Lua script environment.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - A Lua table containing configuration values
-    pub fn update_config(&self, config: Table) -> Result<()> {
-        self.executor.update_config(config)
     }
 
     /// Get access to the underlying Lua executor for advanced usage.
