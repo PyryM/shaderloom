@@ -2,6 +2,11 @@
 name = "shaderloom"
 version = "0.1.0"
 edition = "2024"
+description = "A WGSL shader preprocessor, validator, bundler, and boilerplate generator"
+license = "MIT"
+repository = "https://github.com/PyryM/shaderloom"
+keywords = ["shader", "wgsl", "webgpu", "preprocessor"]
+categories = ["graphics", "development-tools"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -16,6 +21,10 @@ glob = "0.3.1"
 clap = { version = "4.5.22", features = ["derive"] }
 
 lua_binding_macros = {path = "../lua_binding_macros"}
+
+[[bin]]
+name = "shaderloom"
+path = "src/main.rs"
 
 [build-dependencies]
 walkdir = "2.5.0"
