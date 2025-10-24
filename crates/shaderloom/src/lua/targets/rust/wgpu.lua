@@ -164,6 +164,7 @@ function m.write_struct_defs(options, structs, env)
             table.insert(frags, impl)
         end
     end
+    table.sort(frags)
     local struct_str = table.concat(frags, "\n")
     local body = (options.file_template or STRUCT_FILE_TEMPLATE):with{STRUCTS=struct_str}
 
